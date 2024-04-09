@@ -1,26 +1,26 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <TargetFramework>net472</TargetFramework>
     <Description>Bonsai package providing elements for acquiring and processing miniscope data</Description>
     <Copyright>Jonathan P. Newman</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/jonnew/Bonsai.Miniscope</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/jonnew/Bonsai.Miniscope</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/open-ephys/OpenEphys.Bonsai.Miniscope</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/open-ephys/OpenEphys.Bonsai.Miniscope.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <PackageTags>Bonsai Miniscope Open Ephys neuroscience calcium imaging behavior free moving</PackageTags>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageOutputPath>..\bin\$(Configuration)</PackageOutputPath>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Kiloscope.cs" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
   </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="Bonsai.Miniscope.svg" />
-  </ItemGroup>
-
+	
   <ItemGroup>
     <EmbeddedResource Include="OpenEphys.Bonsai.Miniscope.svg" />
   </ItemGroup>
