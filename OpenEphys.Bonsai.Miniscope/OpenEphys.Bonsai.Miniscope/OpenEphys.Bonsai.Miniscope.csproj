@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <Title>Bonsai Miniscope - Open Ephys </Title>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <TargetFramework>net472</TargetFramework>
     <Description>Bonsai package providing elements for acquiring and processing miniscope data</Description>
     <Copyright>Jonathan P. Newman</Copyright>
@@ -13,6 +13,7 @@
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <PackageTags>Bonsai Miniscope Open Ephys neuroscience calcium imaging behavior free moving</PackageTags>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <IncludeSymbols Condition="'$(Configuration)'=='Release'">true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageOutputPath>..\bin\$(Configuration)</PackageOutputPath>
     <PackageReadmeFile>README.md</PackageReadmeFile>
