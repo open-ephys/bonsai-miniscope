@@ -6,7 +6,7 @@ using System.Drawing.Design;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
-namespace OpenEphys.Bonsai.Miniscope
+namespace OpenEphys.Miniscope
 {
     [Description("Produces a video sequence acquired from a UCLA Miniscope V3 using legacy DAQ firmware.")]
     public class LegacyUclaMiniscope : Source<IplImage>
@@ -23,6 +23,7 @@ namespace OpenEphys.Bonsai.Miniscope
             Fps60 = 0x16
         };
 
+        [TypeConverter(typeof(IndexConverter))]
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 

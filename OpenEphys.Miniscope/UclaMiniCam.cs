@@ -6,7 +6,7 @@ using System.Drawing.Design;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
-namespace OpenEphys.Bonsai.Miniscope
+namespace OpenEphys.Miniscope
 {
     [Description("Produces a data sequence from a UCLA MiniCAM behavioral monitoring camera.")]
     public class UclaMiniCam : Source<UclaMiniCamFrame>
@@ -37,6 +37,7 @@ namespace OpenEphys.Bonsai.Miniscope
         // causes link instabilities even with a short, high-quality, nomimal-gauge SMA cable.
         const double LedBrigthnessScaleFactor = 0.26;
 
+        [TypeConverter(typeof(IndexConverter))]
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 

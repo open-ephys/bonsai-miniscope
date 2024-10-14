@@ -1,11 +1,11 @@
 ﻿using OpenCV.Net;
 using System.Numerics;
 
-namespace OpenEphys.Bonsai.Miniscope
+namespace OpenEphys.Miniscope
 {
     public class UclaMiniscopeV4Frame
     {
-        public UclaMiniscopeV4Frame(IplImage image, Vector4 quaternion, int frameNumber, bool trigger)
+        public UclaMiniscopeV4Frame(IplImage image, Quaternion quaternion, int frameNumber, bool trigger)
         {
             FrameNumber = frameNumber;
             Image = image;
@@ -15,7 +15,7 @@ namespace OpenEphys.Bonsai.Miniscope
 
         public int FrameNumber { get; }
         public IplImage Image { get; }
-        public Vector4 Quaternion { get; }
+        public Quaternion Quaternion { get; }
         public bool Trigger { get; }
     }
 }

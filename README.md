@@ -1,4 +1,4 @@
-# OpenEphys.Bonsai.Miniscope
+# OpenEphys.Miniscope
 [Bonsai](http://bonsai-rx.org/) package for controlling and acquiring data from head-borne miniscopes for calcium imaging. 
 
 It contains the following nodes: 
