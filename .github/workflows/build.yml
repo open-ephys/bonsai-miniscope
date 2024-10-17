@@ -138,7 +138,7 @@ jobs:
     name: Deploy Package
     runs-on: ubuntu-latest
     needs: [build]
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' && always() && !failure() && !cancelled()
 
     steps:
       - name: Setup .NET
