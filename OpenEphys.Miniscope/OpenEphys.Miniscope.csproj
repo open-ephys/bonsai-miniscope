@@ -7,7 +7,6 @@
     <TargetFramework>net472</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Platforms>AnyCPU</Platforms>
-    <Version>$(VersionPrefix)-$(VersionSuffix)</Version>
     <PackageProjectUrl>https://open-ephys.github.io/miniscope-docs/index.html</PackageProjectUrl>
     <RepositoryUrl>https://github.com/open-ephys/OpenEphys.Miniscope</RepositoryUrl>
     <PlatformTarget>AnyCPU</PlatformTarget>
