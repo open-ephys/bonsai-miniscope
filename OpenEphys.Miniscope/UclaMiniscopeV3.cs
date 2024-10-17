@@ -6,10 +6,10 @@ using System.Drawing.Design;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
-namespace OpenEphys.Bonsai.Miniscope
+namespace OpenEphys.Miniscope
 {
     [Description("Produces a image sequence acquired from a UCLA Miniscope V3.")]
-    public class UCLAMiniscopeV3 : Source<IplImage>
+    public class UclaMiniscopeV3 : Source<IplImage>
     {
         // NB: Needs a unique name, even though its a class member, for de/serilizaiton without issues
         public enum GainV3
@@ -31,6 +31,7 @@ namespace OpenEphys.Bonsai.Miniscope
         const int Width = 752;
         const int Height = 480;
 
+        [TypeConverter(typeof(IndexConverter))]
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 
@@ -49,7 +50,7 @@ namespace OpenEphys.Bonsai.Miniscope
         readonly IObservable<IplImage> source;
         readonly object captureLock = new object();
 
-        public UCLAMiniscopeV3()
+        public UclaMiniscopeV3()
         {
             source = Observable.Create<IplImage>((observer, cancellationToken) =>
             {

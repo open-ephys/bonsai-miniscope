@@ -1,7 +1,7 @@
 ﻿using OpenCV.Net;
 using System;
 
-namespace OpenEphys.Bonsai.Miniscope
+namespace OpenEphys.Miniscope
 {
     class Helpers
     {

@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Title>Bonsai - Open Ephys Miniscope Design Library </Title>
+    <Description>Bonsai Library containing visual interfaces for configuring ONIX devices.</Description>
+    <PackageTags>Bonsai Rx Open Ephys Onix Design</PackageTags>
+    <TargetFramework>net472</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Platforms>AnyCPU</Platforms>
+    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+    <ForceDesignerDPIUnaware>true</ForceDesignerDPIUnaware>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Bonsai.Design" Version="2.8.5" />
+    <PackageReference Include="Bonsai.Design.Visualizers" Version="2.8.0" />
+    <PackageReference Include="ZedGraph" Version="5.1.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenEphys.Miniscope\OpenEphys.Miniscope.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Resources\" />
+  </ItemGroup>
+
+</Project>

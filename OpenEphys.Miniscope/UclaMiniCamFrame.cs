@@ -1,6 +1,6 @@
 ﻿using OpenCV.Net;
 
-namespace OpenEphys.Bonsai.Miniscope
+namespace OpenEphys.Miniscope
 {
     public class UclaMiniCamFrame
     {

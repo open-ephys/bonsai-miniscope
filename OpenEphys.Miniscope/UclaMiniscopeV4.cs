@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Bonsai;
 using System.Numerics;
 
-namespace OpenEphys.Bonsai.Miniscope
+namespace OpenEphys.Miniscope
 {
     [Description("Produces a data sequence from a UCLA Miniscope V4.")]
     public class UclaMiniscopeV4 : Source<UclaMiniscopeV4Frame>
@@ -37,6 +37,7 @@ namespace OpenEphys.Bonsai.Miniscope
         // 1 quaterion = 2^14 bits
         const float QuatConvFactor = 1.0f / (1 << 14);
 
+        [TypeConverter(typeof(IndexConverter))]
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 
@@ -55,6 +56,10 @@ namespace OpenEphys.Bonsai.Miniscope
 
         [Description("Frames captured per second.")]
         public FrameRateV4 FramesPerSecond { get; set; } = FrameRateV4.Fps30;
+
+        // TODO: Does not work with DAQ for some reason
+        //[Description("Only turn on excitation LED during camera exposures.")]
+        //public bool InterleaveLed { get; set; } = false;
 
         [Description("Turn off the LED when the trigger input is low. " +
             "Note that this pin is low by default. Therefore, if it is not driven and " +
@@ -87,6 +92,7 @@ namespace OpenEphys.Bonsai.Miniscope
                         var lastEWL = Focus;
                         var lastFps = FramesPerSecond;
                         var lastSensorGain = SensorGain;
+                        // var lastInterleaveLed = InterleaveLed;
 
                         using (var capture = Capture.CreateCameraCapture(Index))
                         {
@@ -177,6 +183,12 @@ namespace OpenEphys.Bonsai.Miniscope
                                         lastSensorGain = SensorGain;
                                     }
 
+                                    //if (InterleaveLed != lastInterleaveLed || !initialized)
+                                    //{
+                                    //    Helpers.SendConfig(capture, Helpers.CreateCommand(32, 4, (byte)(InterleaveLed ? 0x00 : 0x03)));
+                                    //    lastInterleaveLed = InterleaveLed;
+                                    //}
+
                                     initialized = true;
 
                                     // Capture frame
@@ -186,7 +198,7 @@ namespace OpenEphys.Bonsai.Miniscope
                                     var frameNumber = (int)capture.GetProperty(CaptureProperty.Contrast);
 
                                     // Get BNO data
-                                    var q = new Vector4
+                                    var q = new Quaternion
                                     {
                                         W = QuatConvFactor * (float)capture.GetProperty(CaptureProperty.Saturation),
                                         X = QuatConvFactor * (float)capture.GetProperty(CaptureProperty.Hue),
