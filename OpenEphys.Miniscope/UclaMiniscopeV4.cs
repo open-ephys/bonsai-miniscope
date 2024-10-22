@@ -118,7 +118,7 @@ namespace OpenEphys.Miniscope
                                 Helpers.SendConfig(capture, Helpers.CreateCommand(176, 30, 10));
                                 Helpers.SendConfig(capture, Helpers.CreateCommand(192, 8, 32, 238, 160, 80));
                                 Helpers.SendConfig(capture, Helpers.CreateCommand(192, 16, 32, 238, 88, 80));
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(80, 65, 9, 5)); // BNO Axis mapping and sign
+                                Helpers.SendConfig(capture, Helpers.CreateCommand(80, 65, 6, 7)); // BNO Axis mapping and sign
                                 Helpers.SendConfig(capture, Helpers.CreateCommand(80, 61, 12)); // BNO operation mode is NDOF
                                 Helpers.SendConfig(capture, Helpers.CreateCommand(254, 0)); // 0x7F
                                 Helpers.SendConfig(capture, Helpers.CreateCommand(238, 3, 3)); // 0x77

@@ -1,7 +1,7 @@
-﻿using System.ComponentModel;
+﻿using System;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
-using System;
 using AForge.Video.DirectShow;
 
 class IndexConverter : Int32Converter
@@ -17,12 +17,25 @@ class IndexConverter : Int32Converter
         return base.ConvertFrom(context, culture, value);
     }
 
+    FilterInfoCollection GetMiniscopes()
+    {
+        var deviceFilters = new FilterInfoCollection(FilterCategory.VideoInputDevice);
+        for (int i = deviceFilters.Count - 1; i >= 0; i--)
+        {
+            if (!deviceFilters[i].Name.Contains("MINISCOPE"))
+                deviceFilters.RemoveAt(i);
+        }
+
+        return deviceFilters;
+    }
+
+
     public override object ConvertTo(ITypeDescriptorContext context, CultureInfo culture, object value, Type destinationType)
     {
         if (destinationType == typeof(string))
         {
             var index = (int)value;
-            var deviceFilters = new FilterInfoCollection(FilterCategory.VideoInputDevice);
+            var deviceFilters = GetMiniscopes();
             if (index >= 0 && index < deviceFilters.Count)
             {
                 return string.Format(culture, "{0} ({1})", index, deviceFilters[index].Name);
@@ -43,7 +56,7 @@ class IndexConverter : Int32Converter
 
     public override TypeConverter.StandardValuesCollection GetStandardValues(ITypeDescriptorContext context)
     {
-        var deviceFilters = new FilterInfoCollection(FilterCategory.VideoInputDevice);
+        var deviceFilters = GetMiniscopes();
         return new StandardValuesCollection(Enumerable.Range(0, deviceFilters.Count).ToArray());
     }
 }
