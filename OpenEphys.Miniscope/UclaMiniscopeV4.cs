@@ -94,7 +94,7 @@ namespace OpenEphys.Miniscope
                         var lastSensorGain = SensorGain;
                         // var lastInterleaveLed = InterleaveLed;
 
-                        using (var capture = Capture.CreateCameraCapture(Index, CaptureDomain.DirectShow))
+                        using (var capture = Capture.CreateCameraCapture(Index))
                         {
                             try
                             {

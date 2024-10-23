@@ -69,7 +69,7 @@ namespace OpenEphys.Miniscope
                         var lastLEDBrightness = LedBrightness;
                         var lastExposure = Exposure;
                         var lastSensorGain = SensorGain;
-                        using (var capture = Capture.CreateCameraCapture(Index, CaptureDomain.DirectShow))
+                        using (var capture = Capture.CreateCameraCapture(Index))
                         {
                             try
                             {

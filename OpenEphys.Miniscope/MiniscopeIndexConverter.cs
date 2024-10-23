@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
-using AForge.Video.DirectShow;
+using System.Linq;
+using OpenCV.Net;
 
 class MiniscopeIndexConverter : Int32Converter
 {
@@ -17,17 +18,37 @@ class MiniscopeIndexConverter : Int32Converter
         return base.ConvertFrom(context, culture, value);
     }
 
+    // TODO: this is beyond heinous, avert your eyes 
     int[] GetMiniscopeIndices()
     {
-        var deviceFilters = new FilterInfoCollection(FilterCategory.VideoInputDevice);
-        var indices = new List<int>();
-        for (int i = 0; i < deviceFilters.Count; i++)
+        var cameras = new List<(int Index,int FrameCount)>();
+
+        for (int i = 0; i < 10; i++)
         {
-            if (deviceFilters[i].Name.Contains("MINISCOPE"))
-                indices.Add(i);
+            using (var capture = Capture.CreateCameraCapture(i++))
+            {
+                if (capture.QueryFrame() != null)
+                {
+                    cameras.Add((i, (int)capture.GetProperty(CaptureProperty.Sharpness)));
+                }
+                capture.Close();
+            }
         }
 
-        return indices.ToArray();
+        // Check if the frame counter incremented because this
+        // is miniscopes' version of a product ID number
+        foreach (var i in cameras)
+        {
+            using (var capture = Capture.CreateCameraCapture(i.Index))
+            {
+                if (capture.GetProperty(CaptureProperty.Sharpness) <= i.FrameCount)
+                {
+                    cameras.Remove(i);
+                    capture.Close();
+                }
+            }
+        }
+        return cameras.Select(x => x.Index).ToArray();
     }
 
     public override object ConvertTo(ITypeDescriptorContext context, CultureInfo culture, object value, Type destinationType)
@@ -35,11 +56,7 @@ class MiniscopeIndexConverter : Int32Converter
         if (destinationType == typeof(string))
         {
             var index = (int)value;
-            var deviceFilters = new FilterInfoCollection(FilterCategory.VideoInputDevice);
-            if (index >= 0 && index < deviceFilters.Count)
-            {
-                return string.Format(culture, "{0} ({1})", index, deviceFilters[index].Name);
-            }
+            return string.Format(culture, "{0} ({1})", index, "MINISCOPE"); // deviceFilters[index].Name);
         }
         return base.ConvertTo(context, culture, value, destinationType);
     }

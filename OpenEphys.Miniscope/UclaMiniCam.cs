@@ -74,7 +74,7 @@ namespace OpenEphys.Miniscope
                         var lastFps = FramesPerSecond;
                         var lastSensorGain = SensorGain;
 
-                        using (var capture = Capture.CreateCameraCapture(Index, CaptureDomain.DirectShow))
+                        using (var capture = Capture.CreateCameraCapture(Index))
                         {
                             try
                             {
