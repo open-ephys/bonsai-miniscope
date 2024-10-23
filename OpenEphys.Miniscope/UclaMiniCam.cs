@@ -1,10 +1,10 @@
-﻿using Bonsai;
-using OpenCV.Net;
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Drawing.Design;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
+using Bonsai;
+using OpenCV.Net;
 
 namespace OpenEphys.Miniscope
 {
@@ -37,7 +37,7 @@ namespace OpenEphys.Miniscope
         // causes link instabilities even with a short, high-quality, nomimal-gauge SMA cable.
         const double LedBrigthnessScaleFactor = 0.26;
 
-        [TypeConverter(typeof(IndexConverter))]
+        [TypeConverter(typeof(MiniscopeIndexConverter))]
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 
@@ -57,7 +57,7 @@ namespace OpenEphys.Miniscope
         readonly object captureLock = new object();
 
         // NB: Camera regiser (ab)uses
-        // CaptureProperty.Saturation   -> Start acqusition
+        // CaptureProperty.Saturation   -> Start acquisition
         // CaptureProperty.Gamma        -> Inverted state of trigger input (3.3 -> Gamma = 0, 0V -> Gamma != 0)
         // CaptureProperty.Contrast     -> DAQ Frame number
 
@@ -74,7 +74,7 @@ namespace OpenEphys.Miniscope
                         var lastFps = FramesPerSecond;
                         var lastSensorGain = SensorGain;
 
-                        using (var capture = Capture.CreateCameraCapture(Index))
+                        using (var capture = Capture.CreateCameraCapture(Index, CaptureDomain.DirectShow))
                         {
                             try
                             {
@@ -117,7 +117,7 @@ namespace OpenEphys.Miniscope
                                     var gate = capture.GetProperty(CaptureProperty.Gamma) != 0;
 
                                     if (LedBrightness != lastLedBrightness || !initialized)
-                                    {           
+                                    {
                                         var scaled = LedBrigthnessScaleFactor * LedBrightness;
                                         Helpers.SendConfig(capture, Helpers.CreateCommand(108, 160, (byte)scaled));
                                         lastLedBrightness = LedBrightness;

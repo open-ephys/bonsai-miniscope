@@ -1,11 +1,11 @@
-﻿using OpenCV.Net;
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Drawing.Design;
+using System.Numerics;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 using Bonsai;
-using System.Numerics;
+using OpenCV.Net;
 
 namespace OpenEphys.Miniscope
 {
@@ -34,10 +34,10 @@ namespace OpenEphys.Miniscope
         const int Width = 608;
         const int Height = 608;
 
-        // 1 quaterion = 2^14 bits
+        // 1 quaternion = 2^14 bits
         const float QuatConvFactor = 1.0f / (1 << 14);
 
-        [TypeConverter(typeof(IndexConverter))]
+        [TypeConverter(typeof(MiniscopeIndexConverter))]
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 
@@ -72,7 +72,7 @@ namespace OpenEphys.Miniscope
 
 
         // NB: Camera regiser (ab)uses
-        // CaptureProperty.Saturation   -> Quaternion W and start acqusition
+        // CaptureProperty.Saturation   -> Quaternion W and start acquisition
         // CaptureProperty.Hue          -> Quaternion X
         // CaptureProperty.Gain         -> Quaternion Y
         // CaptureProperty.Brightness   -> Quaternion Z
@@ -94,7 +94,7 @@ namespace OpenEphys.Miniscope
                         var lastSensorGain = SensorGain;
                         // var lastInterleaveLed = InterleaveLed;
 
-                        using (var capture = Capture.CreateCameraCapture(Index))
+                        using (var capture = Capture.CreateCameraCapture(Index, CaptureDomain.DirectShow))
                         {
                             try
                             {
@@ -164,7 +164,7 @@ namespace OpenEphys.Miniscope
 
                                     if (Focus != lastEWL || !initialized)
                                     {
-                                        var scaled = Focus * 1.27; 
+                                        var scaled = Focus * 1.27;
                                         Helpers.SendConfig(capture, Helpers.CreateCommand(238, 8, (byte)(127 + scaled), 2));
                                         lastEWL = Focus;
                                     }

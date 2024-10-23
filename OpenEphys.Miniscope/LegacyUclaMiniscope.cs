@@ -1,10 +1,10 @@
-﻿using Bonsai;
-using OpenCV.Net;
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Drawing.Design;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
+using Bonsai;
+using OpenCV.Net;
 
 namespace OpenEphys.Miniscope
 {
@@ -23,7 +23,7 @@ namespace OpenEphys.Miniscope
             Fps60 = 0x16
         };
 
-        [TypeConverter(typeof(IndexConverter))]
+        [TypeConverter(typeof(MiniscopeIndexConverter))]
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 
@@ -69,7 +69,7 @@ namespace OpenEphys.Miniscope
                         var lastLEDBrightness = LedBrightness;
                         var lastExposure = Exposure;
                         var lastSensorGain = SensorGain;
-                        using (var capture = Capture.CreateCameraCapture(Index))
+                        using (var capture = Capture.CreateCameraCapture(Index, CaptureDomain.DirectShow))
                         {
                             try
                             {
