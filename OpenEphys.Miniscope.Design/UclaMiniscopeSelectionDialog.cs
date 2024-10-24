@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Bonsai.Reactive;
 using OpenCV.Net;
 
 namespace OpenEphys.Miniscope.Design
@@ -16,21 +17,22 @@ namespace OpenEphys.Miniscope.Design
     {
         bool scanning = false;
         CancellationTokenSource tokenSource = new();
-        CancellationToken token;
         Task cancellableTask;
         readonly ScopeKind scopeKind;
 
         public UclaMiniscopeSelectionDialog(ScopeKind kind)
         {
             InitializeComponent();
-            token = tokenSource.Token;
             scopeKind = kind;
         }
 
         void PerformScan(CancellationToken ct, int maxIterations)
         {
             // Was cancellation already requested?
-            ct.ThrowIfCancellationRequested();
+            if (ct.IsCancellationRequested)
+            {
+                return;
+            }
 
             for (int i = 0; i < maxIterations; i++)
             {
@@ -77,7 +79,10 @@ namespace OpenEphys.Miniscope.Design
                     capture.Close();
                 }
 
-                ct.ThrowIfCancellationRequested();
+                if (ct.IsCancellationRequested)
+                {
+                    break;
+                }
             }
         }
 
@@ -88,32 +93,27 @@ namespace OpenEphys.Miniscope.Design
             listBox_Indices.Items.Clear();
             scanning = true;
         }
-        async void FinishScan()
+        async void CancelScan()
         {
-            tokenSource.Cancel();
-            try
+            if (!cancellableTask.IsCanceled)
             {
-                await cancellableTask;
+                tokenSource.Cancel();
             }
-            catch (OperationCanceledException)
-            {
-                //Console.WriteLine($"\nMain: {nameof(OperationCanceledException)} thrown\n");
-            }
-
-            buttonScan.Text = "Scan";
-            toolStripStatusLabel.Text = "Idle";
-            scanning = false;
+            cancellableTask.Wait();
         }
 
         void FinishScanInvoke()
         {
-            buttonScan.Invoke((MethodInvoker)delegate
+            if (!tokenSource.IsCancellationRequested)
             {
-                buttonScan.Text = "Scan";
-            });
+                buttonScan.Invoke((MethodInvoker)delegate
+                {
+                    buttonScan.Text = "Scan";
+                });
 
-            toolStripStatusLabel.Text = "Idle";
-            scanning = false;
+                toolStripStatusLabel.Text = "Idle";
+                scanning = false;
+            }
         }
 
         private void buttonScan_Click(object sender, EventArgs e)
@@ -122,26 +122,31 @@ namespace OpenEphys.Miniscope.Design
             {
                 StartScan();
                 cancellableTask = Task.Factory.StartNew(() => {
-                    PerformScan(token, 100);
+                    PerformScan(tokenSource.Token, 100);
                     FinishScanInvoke();
-                }, token);
+                }, tokenSource.Token);
             }
             else
             {
-                FinishScan();
+                CancelScan();
+                buttonScan.Text = "Scan";
+                toolStripStatusLabel.Text = "Idle";
+                scanning = false;
             }
         }
 
         private void buttonOK_Click(object sender, EventArgs e)
         {
-            FinishScan();
+            CancelScan();
+            tokenSource.Dispose();
             DialogResult = DialogResult.OK;
             Close();
         }
 
         private async void buttonCancel_Click(object sender, EventArgs e)
         {
-            FinishScan();
+            CancelScan();
+            tokenSource.Dispose();
             DialogResult = DialogResult.Cancel;
             Close();
         }
