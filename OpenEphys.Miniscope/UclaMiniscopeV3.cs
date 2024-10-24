@@ -1,10 +1,10 @@
-﻿using Bonsai;
-using OpenCV.Net;
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Drawing.Design;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
+using Bonsai;
+using OpenCV.Net;
 
 namespace OpenEphys.Miniscope
 {
@@ -31,7 +31,7 @@ namespace OpenEphys.Miniscope
         const int Width = 752;
         const int Height = 480;
 
-        [TypeConverter(typeof(IndexConverter))]
+        [Editor("OpenEphys.Miniscope.Design.UclaMiniscopeV3IndexEditor, OpenEphys.Miniscope.Design", typeof(UITypeEditor))]
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 
@@ -49,6 +49,51 @@ namespace OpenEphys.Miniscope
         // State
         readonly IObservable<IplImage> source;
         readonly object captureLock = new object();
+        AbusedUvcRegisters originalState;
+
+        static internal AbusedUvcRegisters IssueStartCommands(OpenCV.Net.Capture capture)
+        {
+
+            // 8-bit            7-bit           Description
+            // ---------------------------------------------
+            // 192 (0xc0)       96 (0x60)       Deserializer
+            // 176 (0xb0)       88 (0x58)       Serializer
+            // 160 (0xa0)       80 (0x50)       TPL0102 Digital potentiometer
+            // 80 (0x50)        40 (0x28)       BNO055
+            // 254 (0xfe)       127 (0x7F)      ??
+            // 238 (0xee)       119 (0x77)      MAX14574 EWL driver
+            // 32 (0x20)        16 (0x10)       ATTINY MCU
+
+            var cgs = Helpers.ReadConfigurationRegisters(capture);
+
+            // Magik configuration sequence (configures SERDES and chip default states)
+            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 31, 16));
+            Helpers.SendConfig(capture, Helpers.CreateCommand(176, 5, 32));
+            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 34, 2));
+            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 32, 10));
+            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 7, 176));
+            Helpers.SendConfig(capture, Helpers.CreateCommand(176, 15, 2));
+            Helpers.SendConfig(capture, Helpers.CreateCommand(176, 30, 10));
+            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 8, 184, 152));
+            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 16, 184, 152));
+            Helpers.SendConfig(capture, Helpers.CreateCommand(184, 12, 0, 1));
+            Helpers.SendConfig(capture, Helpers.CreateCommand(184, 175, 0, 0));
+
+            // Set frame size
+            capture.SetProperty(CaptureProperty.FrameWidth, Width);
+            capture.SetProperty(CaptureProperty.FrameHeight, Height);
+
+            // Start the camera
+            capture.SetProperty(CaptureProperty.Saturation, 1);
+
+            return cgs;
+        }
+
+        static internal void IssueStopCommands(OpenCV.Net.Capture capture, AbusedUvcRegisters originalState)
+        {
+            Helpers.SendConfig(capture, Helpers.CreateCommand(152, 0, 0));
+            Helpers.WriteConfigurationRegisters(capture, originalState);
+        }
 
         public UclaMiniscopeV3()
         {
@@ -67,25 +112,7 @@ namespace OpenEphys.Miniscope
                         {
                             try
                             {
-                                // Magik configuration sequence (configures SERDES and chip default states)
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(192, 31, 16));
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(176, 5, 32));
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(192, 34, 2));
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(192, 32, 10));
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(192, 7, 176));
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(176, 15, 2));
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(176, 30, 10));
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(192, 8, 184, 152));
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(192, 16, 184, 152));
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(184, 12, 0, 1));
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(184, 175, 0, 0));
-
-                                // Set frame size
-                                capture.SetProperty(CaptureProperty.FrameWidth, Width);
-                                capture.SetProperty(CaptureProperty.FrameHeight, Height);
-
-                                // Start the camera
-                                capture.SetProperty(CaptureProperty.Saturation, 1);
+                                originalState = IssueStartCommands(capture);
 
                                 while (!cancellationToken.IsCancellationRequested)
                                 {
@@ -150,8 +177,7 @@ namespace OpenEphys.Miniscope
                             }
                             finally
                             {
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(152, 0, 0));
-                                capture.SetProperty(CaptureProperty.Saturation, 0);
+                                IssueStopCommands(capture, originalState);
                                 capture.Close();
                             }
 

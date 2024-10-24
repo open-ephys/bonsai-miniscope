@@ -1,10 +1,30 @@
 ﻿using OpenCV.Net;
 using System;
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("OpenEphys.Miniscope.Design")]
 
 namespace OpenEphys.Miniscope
 {
-    class Helpers
+    public class Helpers
     {
+        static internal AbusedUvcRegisters ReadConfigurationRegisters(Capture capture)
+        {
+            return new AbusedUvcRegisters(
+                capture.GetProperty(CaptureProperty.Contrast), 
+                capture.GetProperty(CaptureProperty.Gamma), 
+                capture.GetProperty(CaptureProperty.Sharpness), 
+                capture.GetProperty(CaptureProperty.Saturation));
+        }
+
+        static internal void WriteConfigurationRegisters(Capture capture, AbusedUvcRegisters original)
+        {
+            capture.SetProperty(CaptureProperty.Contrast, original.Contrast);
+            capture.SetProperty(CaptureProperty.Gamma, original.Gamma);
+            capture.SetProperty(CaptureProperty.Sharpness, original.Sharpness);
+            capture.SetProperty(CaptureProperty.Saturation, original.Saturation);
+        }
+
         // V4-capable firmware configuration protocol functions
 
         // They are using a simple protocol for universal device configuration

@@ -1,5 +1,5 @@
-﻿using OpenCV.Net;
-using System.Numerics;
+﻿using System.Numerics;
+using OpenCV.Net;
 
 namespace OpenEphys.Miniscope
 {
