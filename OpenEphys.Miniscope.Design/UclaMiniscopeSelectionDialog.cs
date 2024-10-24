@@ -93,13 +93,17 @@ namespace OpenEphys.Miniscope.Design
             listBox_Indices.Items.Clear();
             scanning = true;
         }
+
         async void CancelScan()
         {
-            if (!cancellableTask.IsCanceled)
+            if (cancellableTask != null)
             {
-                tokenSource.Cancel();
+                if (!cancellableTask.IsCanceled && !tokenSource.IsCancellationRequested)
+                {
+                    tokenSource.Cancel();
+                    cancellableTask.Wait();
+                }
             }
-            cancellableTask.Wait();
         }
 
         void FinishScanInvoke()
@@ -128,6 +132,7 @@ namespace OpenEphys.Miniscope.Design
             }
             else
             {
+                toolStripStatusLabel.Text = "Stopping...";
                 CancelScan();
                 buttonScan.Text = "Scan";
                 toolStripStatusLabel.Text = "Idle";
