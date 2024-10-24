@@ -96,6 +96,8 @@ namespace OpenEphys.Miniscope.Design
 
         async void CancelScan()
         {
+            toolStripStatusLabel.Text = "Stopping...";
+
             if (cancellableTask != null)
             {
                 if (!cancellableTask.IsCanceled && !tokenSource.IsCancellationRequested)
@@ -103,6 +105,7 @@ namespace OpenEphys.Miniscope.Design
                     tokenSource.Cancel();
                     cancellableTask.Wait();
                 }
+
             }
         }
 
@@ -125,6 +128,11 @@ namespace OpenEphys.Miniscope.Design
             if (!scanning)
             {
                 StartScan();
+                if (tokenSource.IsCancellationRequested) 
+                {
+                    tokenSource.Dispose();
+                    tokenSource = new CancellationTokenSource();
+                }
                 cancellableTask = Task.Factory.StartNew(() => {
                     PerformScan(tokenSource.Token, 100);
                     FinishScanInvoke();
@@ -132,7 +140,6 @@ namespace OpenEphys.Miniscope.Design
             }
             else
             {
-                toolStripStatusLabel.Text = "Stopping...";
                 CancelScan();
                 buttonScan.Text = "Scan";
                 toolStripStatusLabel.Text = "Idle";
