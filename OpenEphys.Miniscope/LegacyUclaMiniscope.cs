@@ -23,7 +23,7 @@ namespace OpenEphys.Miniscope
             Fps60 = 0x16
         };
 
-        [TypeConverter(typeof(MiniscopeIndexConverter))]
+        //[TypeConverter(typeof(MiniscopeIndexConverter))]
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 

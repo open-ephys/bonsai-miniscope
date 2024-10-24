@@ -37,7 +37,7 @@ namespace OpenEphys.Miniscope
         // causes link instabilities even with a short, high-quality, nomimal-gauge SMA cable.
         const double LedBrigthnessScaleFactor = 0.26;
 
-        [TypeConverter(typeof(MiniscopeIndexConverter))]
+        [Editor("OpenEphys.Miniscope.Design.UclaMiniCamIndexEditor, OpenEphys.Miniscope.Design", typeof(UITypeEditor))]
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 
@@ -55,11 +55,59 @@ namespace OpenEphys.Miniscope
         // State
         readonly IObservable<UclaMiniCamFrame> source;
         readonly object captureLock = new object();
+        AbusedUvcRegisters originalState;
 
         // NB: Camera regiser (ab)uses
         // CaptureProperty.Saturation   -> Start acquisition
         // CaptureProperty.Gamma        -> Inverted state of trigger input (3.3 -> Gamma = 0, 0V -> Gamma != 0)
         // CaptureProperty.Contrast     -> DAQ Frame number
+
+        static internal AbusedUvcRegisters IssueStartCommands(Capture capture)
+        {
+            // I2C Addresses in various formats
+            // ---------------------------------------------
+            // 8-bit            7-bit           Description
+            // ---------------------------------------------
+            // 192 (0xc0)       96 (0x60)       Deserializer
+            // 176 (0xb0)       88 (0x58)       Serializer
+            // 186 (0xba)       93 (0x5d)       MT9P031 Camera
+            // 108 (0x6c)       54 (0x36)       LM3509 LED driver
+
+            var cgs = Helpers.ReadConfigurationRegisters(capture);
+
+            // Magik configuration sequence (configures SERDES and chip default states)
+            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 7, 176)); // Provide deserializwer with serializer address
+            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 34, 2)); // Speed up i2c bus timer to 50us max
+            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 32, 10)); // Decrease BCC timeout, units in 2 ms
+            Helpers.SendConfig(capture, Helpers.CreateCommand(176, 15, 2)); // Speed up I2c bus timer to 50u Max
+            Helpers.SendConfig(capture, Helpers.CreateCommand(176, 30, 10)); // Decrease BCC timeout, units in 2 ms
+            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 8, 186, 108)); // Set aliases for MT9P031 and LM3509
+            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 16, 186, 108)); // Set aliasesor MT9P031 and LM3509
+            Helpers.SendConfig(capture, Helpers.CreateCommand(186, 3, 5, 255)); // Set height to 1535 rows
+            Helpers.SendConfig(capture, Helpers.CreateCommand(186, 4, 7, 255)); // Set width to 2047 colums
+            Helpers.SendConfig(capture, Helpers.CreateCommand(186, 34, 0, 17)); // 2x subsamp and binning 1
+            Helpers.SendConfig(capture, Helpers.CreateCommand(186, 35, 0, 17)); // 2x subsamp and binning 2
+            Helpers.SendConfig(capture, Helpers.CreateCommand(186, 32, 0, 96)); // Set column binning to summing instead of averaging
+            Helpers.SendConfig(capture, Helpers.CreateCommand(186, 62, 0, 192)); // Set register 0x3e to 0xc0 when sensor gain > 4 (TODO: conditional??)
+            Helpers.SendConfig(capture, Helpers.CreateCommand(186, 9, 2, 255)); // Change shutter width
+            Helpers.SendConfig(capture, Helpers.CreateCommand(108, 16, 215)); // LED Driver LM3509 general configuration
+
+            // Set frame size
+            capture.SetProperty(CaptureProperty.FrameWidth, Width);
+            capture.SetProperty(CaptureProperty.FrameHeight, Height);
+
+            // Start the camera
+            capture.SetProperty(CaptureProperty.Saturation, 1);
+
+            return cgs;
+        }
+
+        static internal void IssueStopCommands(Capture capture, AbusedUvcRegisters originalState)
+        {
+            Helpers.SendConfig(capture, Helpers.CreateCommand(32, 1, 255));
+            Helpers.SendConfig(capture, Helpers.CreateCommand(88, 0, 114, 255));
+            Helpers.WriteConfigurationRegisters(capture, originalState);
+        }
 
         public UclaMiniCam()
         {
@@ -78,38 +126,7 @@ namespace OpenEphys.Miniscope
                         {
                             try
                             {
-                                // I2C Addresses in various formats
-                                // ---------------------------------------------
-                                // 8-bit            7-bit           Description
-                                // ---------------------------------------------
-                                // 192 (0xc0)       96 (0x60)       Deserializer
-                                // 176 (0xb0)       88 (0x58)       Serializer
-                                // 186 (0xba)       93 (0x5d)       MT9P031 Camera
-                                // 108 (0x6c)       54 (0x36)       LM3509 LED driver
-
-                                // Magik configuration sequence (configures SERDES and chip default states)
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(192, 7, 176)); // Provide deserializwer with serializer address
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(192, 34, 2)); // Speed up i2c bus timer to 50us max
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(192, 32, 10)); // Decrease BCC timeout, units in 2 ms
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(176, 15, 2)); // Speed up I2c bus timer to 50u Max
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(176, 30, 10)); // Decrease BCC timeout, units in 2 ms
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(192, 8, 186, 108)); // Set aliases for MT9P031 and LM3509
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(192, 16, 186, 108)); // Set aliasesor MT9P031 and LM3509
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(186, 3, 5, 255)); // Set height to 1535 rows
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(186, 4, 7, 255)); // Set width to 2047 colums
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(186, 34, 0, 17)); // 2x subsamp and binning 1
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(186, 35, 0, 17)); // 2x subsamp and binning 2
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(186, 32, 0, 96)); // Set column binning to summing instead of averaging
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(186, 62, 0, 192)); // Set register 0x3e to 0xc0 when sensor gain > 4 (TODO: conditional??)
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(186, 9, 2, 255)); // Change shutter width
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(108, 16, 215)); // LED Driver LM3509 general configuration
-
-                                // Set frame size
-                                capture.SetProperty(CaptureProperty.FrameWidth, Width);
-                                capture.SetProperty(CaptureProperty.FrameHeight, Height);
-
-                                // Start the camera
-                                capture.SetProperty(CaptureProperty.Saturation, 1);
+                                originalState = IssueStartCommands(capture);
 
                                 while (!cancellationToken.IsCancellationRequested)
                                 {
@@ -160,9 +177,7 @@ namespace OpenEphys.Miniscope
                             }
                             finally
                             {
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(32, 1, 255));
-                                Helpers.SendConfig(capture, Helpers.CreateCommand(88, 0, 114, 255));
-                                capture.SetProperty(CaptureProperty.Saturation, 0);
+                                IssueStopCommands(capture, originalState);
                                 capture.Close();
                             }
 
