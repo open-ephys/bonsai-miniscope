@@ -20,14 +20,6 @@ namespace OpenEphys.Miniscope
             Maximum = 6240,
         };
 
-        // NB: Needs a unique name, even though its a class member, for de/serilizaiton without issues
-        public enum FrameRateMiniCam
-        {
-            Fps10 = 2048,
-            Fps40 = 1536,
-            Fps50 = 6240,
-        };
-
         // Frame size
         const int Width = 1024;
         const int Height = 768;
@@ -50,7 +42,9 @@ namespace OpenEphys.Miniscope
         public GainMiniCam SensorGain { get; set; } = GainMiniCam.Low;
 
         [Description("Frames captured per second.")]
-        public FrameRateMiniCam FramesPerSecond { get; set; } = FrameRateMiniCam.Fps50;
+        [Range(5, 47)]
+        [Editor(DesignTypes.SliderEditor, typeof(UITypeEditor))]
+        public int FramesPerSecond { get; set; } = 30;
 
         // State
         readonly IObservable<UclaMiniCamFrame> source;
@@ -82,7 +76,7 @@ namespace OpenEphys.Miniscope
             Helpers.SendConfig(capture, Helpers.CreateCommand(176, 15, 2)); // Speed up I2c bus timer to 50u Max
             Helpers.SendConfig(capture, Helpers.CreateCommand(176, 30, 10)); // Decrease BCC timeout, units in 2 ms
             Helpers.SendConfig(capture, Helpers.CreateCommand(192, 8, 186, 108)); // Set aliases for MT9P031 and LM3509
-            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 16, 186, 108)); // Set aliasesor MT9P031 and LM3509
+            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 16, 186, 108)); // Set aliases for MT9P031 and LM3509
             Helpers.SendConfig(capture, Helpers.CreateCommand(186, 3, 5, 255)); // Set height to 1535 rows
             Helpers.SendConfig(capture, Helpers.CreateCommand(186, 4, 7, 255)); // Set width to 2047 colums
             Helpers.SendConfig(capture, Helpers.CreateCommand(186, 34, 0, 17)); // 2x subsamp and binning 1
@@ -142,8 +136,12 @@ namespace OpenEphys.Miniscope
 
                                     if (FramesPerSecond != lastFps || !initialized)
                                     {
-                                        byte vl = (byte)((int)FramesPerSecond & 0x00000FF);
-                                        byte vh = (byte)(((int)FramesPerSecond & 0x000FF00) >> 8);
+                                        // This was found empirically.
+                                        var reg = 37000 / FramesPerSecond;
+                                        if (reg < 0) reg = 0;
+
+                                        byte vl = (byte)(reg & 0x00000FF);
+                                        byte vh = (byte)((reg & 0x000FF00) >> 8);
                                         Helpers.SendConfig(capture, Helpers.CreateCommand(186, 9, vh, vl));
                                         lastFps = FramesPerSecond;
                                     }
