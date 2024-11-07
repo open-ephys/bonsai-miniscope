@@ -12,23 +12,7 @@ namespace OpenEphys.Miniscope
     [Description("Produces a data sequence from a UCLA Miniscope V4.")]
     public class UclaMiniscopeV4 : Source<UclaMiniscopeV4Frame>
     {
-        // NB: Needs a unique name, even though its a class member, for de/serilizaiton without issues
-        public enum GainV4
-        {
-            Low = 225,
-            Medium = 228,
-            High = 36,
-        };
 
-        // NB: Needs a unique name, even though its a class member, for de/serilizaiton without issues
-        public enum FrameRateV4
-        {
-            Fps10 = 39 & 0x000000FF | 16 << 8,
-            Fps15 = 26 & 0x000000FF | 11 << 8,
-            Fps20 = 19 & 0x000000FF | 136 << 8,
-            Fps25 = 15 & 0x000000FF | 160 << 8,
-            Fps30 = 12 & 0x000000FF | 228 << 8,
-        };
 
         // Frame size
         const int Width = 608;
@@ -41,19 +25,23 @@ namespace OpenEphys.Miniscope
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 
+        [Precision(1, 0.1)]
         [Range(0, 100)]
         [Editor(DesignTypes.SliderEditor, typeof(UITypeEditor))]
         [Description("Excitation LED brightness (percent of max).")]
         public double LedBrightness { get; set; } = 0;
 
+        [Precision(1, 0.1)]
         [Range(-100, 100)]
         [Editor(DesignTypes.SliderEditor, typeof(UITypeEditor))]
         [Description("Electro-wetting lens focal plane adjustment (percent of range around nominal).")]
         public double Focus { get; set; } = 0;
 
+        [TypeConverter(typeof(GainV4TypeConverter))]
         [Description("Image sensor gain setting.")]
         public GainV4 SensorGain { get; set; } = GainV4.Low;
 
+        [TypeConverter(typeof(FrameRateV4TypeConverter))]
         [Description("Frames captured per second.")]
         public FrameRateV4 FramesPerSecond { get; set; } = FrameRateV4.Fps30;
 
@@ -256,6 +244,63 @@ namespace OpenEphys.Miniscope
         public override IObservable<UclaMiniscopeV4Frame> Generate()
         {
             return source;
+        }
+    }
+
+    // NB: Needs a unique name, even though its a class member, for de/serilizaiton without issues
+    public enum GainV4
+    {
+        Low = 225,
+        Medium = 228,
+        High = 36,
+    }
+
+    class GainV4TypeConverter : EnumConverter
+    {
+        internal GainV4TypeConverter()
+            : base(typeof(GainV4))
+        {
+        }
+
+        public override StandardValuesCollection GetStandardValues(ITypeDescriptorContext context)
+        {
+            return new StandardValuesCollection(new[]
+            {
+                GainV4.Low,
+                GainV4.Medium,
+                GainV4.High,
+            });
+        }
+    }
+
+    // NB: Needs a unique name, even though its a class member, for de/serilizaiton without issues
+    public enum FrameRateV4
+    {
+        Fps10 = 39 & 0x000000FF | 16 << 8,
+        Fps15 = 26 & 0x000000FF | 11 << 8,
+        Fps20 = 19 & 0x000000FF | 136 << 8,
+        Fps25 = 15 & 0x000000FF | 160 << 8,
+        Fps30 = 12 & 0x000000FF | 228 << 8,
+    };
+
+
+    class FrameRateV4TypeConverter : EnumConverter
+    {
+        internal FrameRateV4TypeConverter()
+            : base(typeof(FrameRateV4))
+        {
+        }
+
+        public override StandardValuesCollection GetStandardValues(ITypeDescriptorContext context)
+        {
+            return new StandardValuesCollection(new[]
+            {
+                FrameRateV4.Fps10,
+                FrameRateV4.Fps15,
+                FrameRateV4.Fps20,
+                FrameRateV4.Fps25,
+                FrameRateV4.Fps30,
+            });
         }
     }
 }
