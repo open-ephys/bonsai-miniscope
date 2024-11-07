@@ -3,17 +3,17 @@
   <PropertyGroup>
     <Authors>Open Ephys</Authors>
     <Copyright>Copyright © Open Ephys and Contributors</Copyright>
-    <PackageProjectUrl>https://open-ephys.github.io/onix1-bonsai-docs</PackageProjectUrl>
+    <PackageProjectUrl>https://open-ephys.github.io/miniscope-docs/index.html</PackageProjectUrl>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <IncludeSymbols>true</IncludeSymbols>
-    <RepositoryUrl>https://github.com/open-ephys/onix-bonsai-onix1</RepositoryUrl>
+    <RepositoryUrl>https://github.com/open-ephys/bonsai-miniscope</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <UseArtifactsOutput>true</UseArtifactsOutput>
     <PackageIcon>icon.png</PackageIcon>
-    <VersionPrefix>0.3.0</VersionPrefix>
+    <VersionPrefix>0.3.1</VersionPrefix>
     <VersionSuffix></VersionSuffix>
     <LangVersion>10.0</LangVersion>
     <Features>strict</Features>

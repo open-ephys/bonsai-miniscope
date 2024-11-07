@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <Title>Bonsai - Open Ephys Miniscope Design Library </Title>
-    <Description>Bonsai Library containing visual interfaces for configuring ONIX devices.</Description>
-    <PackageTags>Bonsai Rx Open Ephys Onix Design</PackageTags>
+    <Description>Bonsai Library containing visual interfaces for microendoscopes such as the UCLA Miniscope.</Description>
+    <PackageTags>Bonsai Rx Open Ephys Miniscope Imaging Calcium</PackageTags>
     <TargetFramework>net472</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <Platforms>AnyCPU</Platforms>

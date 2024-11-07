@@ -1,9 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Title>OpenEphys.Miniscope</Title>
-    <Description>Bonsai library containing interfaces for data acquisition and control of ONIX devices.</Description>
-    <PackageTags>Bonsai Rx Open Ephys Miniscope</PackageTags>
+    <Title>Bonsai - OpenEphys Miniscope Library</Title>
+    <Description>Bonsai library containing interfaces for microendoscopes such as the UCLA Miniscope.</Description>
+    <PackageTags>Bonsai Rx Open Ephys Miniscope Imaging Calcium</PackageTags>
     <TargetFramework>net472</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Platforms>AnyCPU</Platforms>
