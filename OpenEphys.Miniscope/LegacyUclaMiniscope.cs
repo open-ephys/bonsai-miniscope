@@ -12,7 +12,7 @@ namespace OpenEphys.Miniscope
     public class LegacyUclaMiniscope : Source<IplImage>
     {
 
-        // NB: Needs a unique name, even though its a class member, for de/serilizaiton without issues
+        // NB: Needs a unique name, even though its a class member, for de/serialization without issues
         public enum FrameRateLegacy
         {
             Fps5 = 0x11,

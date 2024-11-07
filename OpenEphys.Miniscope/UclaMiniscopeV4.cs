@@ -247,7 +247,7 @@ namespace OpenEphys.Miniscope
         }
     }
 
-    // NB: Needs a unique name, even though its a class member, for de/serilizaiton without issues
+    // NB: Needs a unique name, even though its a class member, for de/serialization without issues
     public enum GainV4
     {
         Low = 225,
@@ -273,7 +273,7 @@ namespace OpenEphys.Miniscope
         }
     }
 
-    // NB: Needs a unique name, even though its a class member, for de/serilizaiton without issues
+    // NB: Needs a unique name, even though its a class member, for de/serialization without issues
     public enum FrameRateV4
     {
         Fps10 = 39 & 0x000000FF | 16 << 8,
