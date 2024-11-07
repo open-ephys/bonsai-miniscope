@@ -11,7 +11,7 @@ namespace OpenEphys.Miniscope
     [Description("Produces a image sequence acquired from a UCLA Miniscope V3.")]
     public class UclaMiniscopeV3 : Source<IplImage>
     {
-        // NB: Needs a unique name, even though its a class member, for de/serilizaiton without issues
+        // NB: Needs a unique name, even though its a class member, for de/serialization without issues
         public enum GainV3
         {
             Low = 225,
@@ -19,7 +19,7 @@ namespace OpenEphys.Miniscope
             High = 36
         };
 
-        // NB: Needs a unique name, even though its a class member, for de/serilizaiton without issues
+        // NB: Needs a unique name, even though its a class member, for de/serialization without issues
         public enum FrameRateV3
         {
             Fps10,
