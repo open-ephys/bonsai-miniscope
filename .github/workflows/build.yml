@@ -11,6 +11,6 @@ on:
 
 jobs:
   build_and_publish:
-    uses: open-ephys/github-actions/.github/workflows/build.yml@main
+    uses: open-ephys/github-actions/.github/workflows/build_dotnet_publish_nuget.yml@main
     secrets:
       NUGET_APIKEY: ${{ secrets.NUGET_APIKEY }}
