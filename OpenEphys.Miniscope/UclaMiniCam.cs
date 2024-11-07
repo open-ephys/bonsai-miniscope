@@ -33,7 +33,8 @@ namespace OpenEphys.Miniscope
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 
-        [Range(0, 26)] //
+        [Range(0, 100)]
+        [Precision(1, 0.1)]
         [Editor(DesignTypes.SliderEditor, typeof(UITypeEditor))]
         [Description("LED brightness (percent of max).")]
         public double LedBrightness { get; set; } = 0;
@@ -43,7 +44,7 @@ namespace OpenEphys.Miniscope
 
         [Description("Frames captured per second.")]
         [Range(5, 47)]
-        [Editor(DesignTypes.SliderEditor, typeof(UITypeEditor))]
+        [Editor(DesignTypes.NumericUpDownEditor, typeof(UITypeEditor))]
         public int FramesPerSecond { get; set; } = 30;
 
         // State
