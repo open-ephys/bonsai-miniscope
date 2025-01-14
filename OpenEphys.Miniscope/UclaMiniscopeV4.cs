@@ -207,10 +207,10 @@ namespace OpenEphys.Miniscope
                                     // Get BNO data
                                     var q = new Quaternion
                                     {
-                                        W = QuatConvFactor * (float)capture.GetProperty(CaptureProperty.Saturation),
-                                        X = QuatConvFactor * (float)capture.GetProperty(CaptureProperty.Hue),
-                                        Y = QuatConvFactor * (float)capture.GetProperty(CaptureProperty.Gain),
-                                        Z = QuatConvFactor * (float)capture.GetProperty(CaptureProperty.Brightness)
+                                        W = QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Saturation),
+                                        X = QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Hue),
+                                        Y = QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Gain),
+                                        Z = QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Brightness)
                                     };
 
                                     if (image == null)
