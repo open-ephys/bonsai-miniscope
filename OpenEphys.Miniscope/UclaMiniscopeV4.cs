@@ -129,9 +129,8 @@ namespace OpenEphys.Miniscope
                         var lastFps = FramesPerSecond;
                         var lastSensorGain = SensorGain;
                         // var lastInterleaveLed = InterleaveLed;
-                        
 
-                        using (var capture = OpenCV.Net.Capture.CreateCameraCapture(Index))
+                        using (var capture = Capture.CreateCameraCapture(Index))
                         {
                             try
                             {
