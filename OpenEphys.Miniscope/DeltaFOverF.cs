@@ -8,8 +8,8 @@ using System.Collections.Generic;
 
 namespace OpenEphys.Miniscope
 {
-    [Description("Performs a naïve, causal deltaF/F calculation on a series of images. In general, regardless of how its computed, deltaF/F should not be used for quantitative analysis due to to its dependence on accurate background estimation and the (generally) nonlinear relationship between fluorescence intensity and the underlying independent variable of interest (e.g. Calcium levels).")]
-    public class DeltaFOverF : Transform<IplImage, (IplImage, IplImage)>
+    [Description("Performs a naïve, causal deltaF/F calculation on a series of images. Care should be taken when using deltaF/F for quantitative analysis due to to its dependence on accurate background estimation and the (generally) nonlinear relationship between fluorescence intensity and the underlying independent variable of interest (e.g. Calcium levels). This operator is useful for performing a quick online deltaF/F but is not recommended for quantitative analysis since it is causal performs very simple background estimation.")]
+    public class DeltaFOverF : Transform<IplImage, IplImage>
     {
         [Range(2, 1000)]
         [Editor(DesignTypes.NumericUpDownEditor, DesignTypes.UITypeEditor)]
@@ -23,15 +23,14 @@ namespace OpenEphys.Miniscope
         public double BackgroundThreshold { get; set; } = 20;
 
         [Editor(DesignTypes.NumericUpDownEditor, DesignTypes.UITypeEditor)]
-        [Description("The standard deviation, in pixels, of a Gaussian function that approximates the spatial extent of a typical region of interest (e.g. a cell body). If set to 0, data calculation is performed without spatial smoothing.")]
+        [Description("The standard deviation, in pixels, of a Gaussian function that approximates the spatial extent of a typical region of interest (e.g. a cell body). If set to 0, no smoothing is performed.")]
         public int Sigma { get; set; } = 2;
 
-        public override IObservable<(IplImage, IplImage)> Process(IObservable<IplImage> source)
+        public override IObservable<IplImage> Process(IObservable<IplImage> source)
         {
             return Observable.Defer(() =>
             {
                 IplImage greyImage = null;
-                IplImage dummy = null;
                 IplImage floatImage = null;
                 IplImage background = null;
                 Queue<IplImage> backgroundBuffer = null;
@@ -50,7 +49,6 @@ namespace OpenEphys.Miniscope
                             backgroundBuffer.Enqueue(new IplImage(input.Size, IplDepth.F32, 1));
 
                         greyImage = new IplImage(input.Size, input.Depth, 1);
-                        dummy = new IplImage(input.Size, input.Depth, 1);
                         floatImage = new IplImage(input.Size, IplDepth.F32, 1);
                         background = new IplImage(input.Size, IplDepth.F32, 1);
                     }
@@ -84,7 +82,7 @@ namespace OpenEphys.Miniscope
                     var dffMasked = new IplImage(dff.Size, dff.Depth, dff.Channels);
                     CV.Copy(dff, dffMasked, maskBackground * maskDff);
 
-                    return (background, dffMasked);
+                    return dffMasked;
                 });
             });
         }
