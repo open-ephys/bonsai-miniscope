@@ -47,6 +47,10 @@ namespace OpenEphys.Miniscope
         [Editor(DesignTypes.NumericUpDownEditor, typeof(UITypeEditor))]
         public int FramesPerSecond { get; set; } = 30;
 
+        [Description("When set to true, the Sync Output pin will toggle when a frame " +
+                     "is captured. Otherwise, it will not toggle.")]
+        public bool EnableSyncOutput { get; set; } = true;
+
         // State
         readonly IObservable<UclaMiniCamFrame> source;
         readonly object captureLock = new object();
@@ -91,9 +95,6 @@ namespace OpenEphys.Miniscope
             capture.SetProperty(CaptureProperty.FrameWidth, Width);
             capture.SetProperty(CaptureProperty.FrameHeight, Height);
 
-            // Start the camera
-            capture.SetProperty(CaptureProperty.Saturation, 1);
-
             return cgs;
         }
 
@@ -116,6 +117,7 @@ namespace OpenEphys.Miniscope
                         var lastLedBrightness = LedBrightness;
                         var lastFps = FramesPerSecond;
                         var lastSensorGain = SensorGain;
+                        var lastEnableSyncOutput = EnableSyncOutput;
 
                         using (var capture = Capture.CreateCameraCapture(Index))
                         {
@@ -127,6 +129,12 @@ namespace OpenEphys.Miniscope
                                 {
                                     // Get trigger input state
                                     var gate = capture.GetProperty(CaptureProperty.Gamma) != 0;
+
+                                    if (EnableSyncOutput != lastEnableSyncOutput || !initialized)
+                                    {
+                                        capture.SetProperty(CaptureProperty.Saturation, EnableSyncOutput ? 1.0 : 0.0);
+                                        lastEnableSyncOutput = EnableSyncOutput;
+                                    }
 
                                     if (LedBrightness != lastLedBrightness || !initialized)
                                     {
