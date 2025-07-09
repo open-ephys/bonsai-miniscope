@@ -13,7 +13,6 @@ namespace OpenEphys.Miniscope
     public class UclaMiniscopeV4 : Source<UclaMiniscopeV4Frame>
     {
 
-
         // Frame size
         const int Width = 608;
         const int Height = 608;
@@ -54,9 +53,13 @@ namespace OpenEphys.Miniscope
             "this option is set to true, the LED will not turn on.")]
         public bool LedRespectsTrigger { get; set; } = false;
 
+        [Description("When set to true, the Sync Output pin will toggle when a frame " +
+            "is captured. Otherwise, it will not toggle.")]
+        public bool EnableSyncOutput { get; set; } = true;    
+
         // State
         readonly IObservable<UclaMiniscopeV4Frame> source;
-        readonly object captureLock = new object();
+        readonly object captureLock = new();
         AbusedUvcRegisters originalState;
 
 
@@ -102,13 +105,10 @@ namespace OpenEphys.Miniscope
             capture.SetProperty(CaptureProperty.FrameWidth, Width);
             capture.SetProperty(CaptureProperty.FrameHeight, Height);
 
-            // Start the camera
-            capture.SetProperty(CaptureProperty.Saturation, 1);
-
             return cgs;
         }
 
-        static internal void IssueStopCommands(OpenCV.Net.Capture capture, AbusedUvcRegisters originalState)
+        static internal void IssueStopCommands(Capture capture, AbusedUvcRegisters originalState)
         {
             Helpers.SendConfig(capture, Helpers.CreateCommand(32, 1, 255));
             Helpers.SendConfig(capture, Helpers.CreateCommand(88, 0, 114, 255));
@@ -128,6 +128,7 @@ namespace OpenEphys.Miniscope
                         var lastEWL = Focus;
                         var lastFps = FramesPerSecond;
                         var lastSensorGain = SensorGain;
+                        var lastEnableSyncOutput = EnableSyncOutput;
                         // var lastInterleaveLed = InterleaveLed;
 
                         using (var capture = Capture.CreateCameraCapture(Index))
@@ -140,6 +141,12 @@ namespace OpenEphys.Miniscope
                                 {
                                     // Get trigger input state
                                     var gate = capture.GetProperty(CaptureProperty.Gamma) != 0;
+
+                                    if (EnableSyncOutput != lastEnableSyncOutput || !initialized)
+                                    {
+                                        capture.SetProperty(CaptureProperty.Saturation, EnableSyncOutput ? 1.0 : 0.0);
+                                        lastEnableSyncOutput = EnableSyncOutput;
+                                    }
 
                                     if (LedRespectsTrigger)
                                     {
