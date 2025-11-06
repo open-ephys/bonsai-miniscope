@@ -242,3 +242,9 @@ ModelManifest.xml
 
 # FAKE - F# Make
 .fake/
+
+# Bonsai files/folders
+.bonsai/Packages/
+.bonsai/*.exe
+.bonsai/*.exe.settings
+.bonsai/*.exe.WebView2/
