@@ -219,6 +219,9 @@ namespace OpenEphys.Miniscope
 
                                 if (image == null)
                                 {
+#if DEBUG
+                                    Console.WriteLine("Could not query a frame.");
+#endif
                                     collectFramesCancellation.Cancel();
                                     break;
                                 }
