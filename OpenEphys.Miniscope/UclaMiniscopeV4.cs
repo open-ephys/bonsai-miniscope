@@ -1,8 +1,11 @@
 ﻿using System;
+using System.CodeDom;
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Drawing.Design;
 using System.Numerics;
 using System.Reactive.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Bonsai;
 using OpenCV.Net;
@@ -12,8 +15,6 @@ namespace OpenEphys.Miniscope
     [Description("Produces a data sequence from a UCLA Miniscope V4.")]
     public class UclaMiniscopeV4 : Source<UclaMiniscopeV4Frame>
     {
-
-
         // Frame size
         const int Width = 608;
         const int Height = 608;
@@ -70,7 +71,7 @@ namespace OpenEphys.Miniscope
 
         static internal AbusedUvcRegisters IssueStartCommands(OpenCV.Net.Capture capture)
         {
-            
+
             // 8-bit            7-bit           Description
             // ---------------------------------------------
             // 192 (0xc0)       96 (0x60)       Deserializer
@@ -115,11 +116,27 @@ namespace OpenEphys.Miniscope
             Helpers.WriteConfigurationRegisters(capture, originalState);
         }
 
+        Task readFrames;
+        Task distributeFrames;
+        Task acquisition = Task.CompletedTask;
+
+        CancellationTokenSource collectFramesCancellation;
+
         public UclaMiniscopeV4()
         {
             source = Observable.Create<UclaMiniscopeV4Frame>((observer, cancellationToken) =>
             {
-                return Task.Factory.StartNew(() =>
+                if (!acquisition.IsCompleted)
+                {
+                    throw new InvalidOperationException("Acquisition is already running in the current context.");
+                }
+
+                collectFramesCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                var collectFramesToken = collectFramesCancellation.Token;
+                const int capacity = 30; // NB: Start testing with one second (at 30 fps) of buffer
+                var frameQueue = new BlockingCollection<UclaMiniscopeV4Frame>(capacity);
+
+                readFrames = Task.Factory.StartNew(() =>
                 {
                     lock (captureLock)
                     {
@@ -130,111 +147,156 @@ namespace OpenEphys.Miniscope
                         var lastSensorGain = SensorGain;
                         // var lastInterleaveLed = InterleaveLed;
 
-                        using (var capture = Capture.CreateCameraCapture(Index))
+                        using var capture = Capture.CreateCameraCapture(Index);
+
+                        originalState = IssueStartCommands(capture);
+
+                        try
                         {
-                            try
+                            while (!collectFramesToken.IsCancellationRequested)
                             {
-                                originalState = IssueStartCommands(capture);
+                                // Get trigger input state
+                                var gate = capture.GetProperty(CaptureProperty.Gamma) != 0;
 
-                                while (!cancellationToken.IsCancellationRequested)
+                                if (LedRespectsTrigger)
                                 {
-                                    // Get trigger input state
-                                    var gate = capture.GetProperty(CaptureProperty.Gamma) != 0;
-
-                                    if (LedRespectsTrigger)
+                                    if (!gate && lastLedBrightness != 0)
                                     {
-                                        if (!gate && lastLedBrightness != 0)
-                                        {
-                                            Helpers.SendConfig(capture, Helpers.CreateCommand(32, 1, 255));
-                                            Helpers.SendConfig(capture, Helpers.CreateCommand(88, 0, 114, 255));
-                                            lastLedBrightness = 0;
-                                        }
-                                        else if (gate && LedBrightness != lastLedBrightness || !initialized)
-                                        {
-                                            var scaled = 2.55 * LedBrightness;
-                                            Helpers.SendConfig(capture, Helpers.CreateCommand(32, 1, (byte)(255 - scaled)));
-                                            Helpers.SendConfig(capture, Helpers.CreateCommand(88, 0, 114, (byte)(255 - scaled)));
-                                            lastLedBrightness = LedBrightness;
-                                        }
+                                        Helpers.SendConfig(capture, Helpers.CreateCommand(32, 1, 255));
+                                        Helpers.SendConfig(capture, Helpers.CreateCommand(88, 0, 114, 255));
+                                        lastLedBrightness = 0;
                                     }
-                                    else
+                                    else if (gate && LedBrightness != lastLedBrightness || !initialized)
                                     {
-                                        if (LedBrightness != lastLedBrightness || !initialized)
-                                        {
-                                            var scaled = 2.55 * LedBrightness;
-                                            Helpers.SendConfig(capture, Helpers.CreateCommand(32, 1, (byte)(255 - scaled)));
-                                            Helpers.SendConfig(capture, Helpers.CreateCommand(88, 0, 114, (byte)(255 - scaled)));
-                                            lastLedBrightness = LedBrightness;
-                                        }
-                                    }
-
-                                    if (Focus != lastEWL || !initialized)
-                                    {
-                                        var scaled = Focus * 1.27;
-                                        Helpers.SendConfig(capture, Helpers.CreateCommand(238, 8, (byte)(127 + scaled), 2));
-                                        lastEWL = Focus;
-                                    }
-
-                                    if (FramesPerSecond != lastFps || !initialized)
-                                    {
-                                        byte v0 = (byte)((int)FramesPerSecond & 0x00000FF);
-                                        byte v1 = (byte)(((int)FramesPerSecond & 0x000FF00) >> 8);
-                                        Helpers.SendConfig(capture, Helpers.CreateCommand(32, 5, 0, 201, v0, v1));
-                                        lastFps = FramesPerSecond;
-                                    }
-
-                                    if (SensorGain != lastSensorGain || !initialized)
-                                    {
-                                        Helpers.SendConfig(capture, Helpers.CreateCommand(32, 5, 0, 204, 0, (byte)SensorGain));
-                                        lastSensorGain = SensorGain;
-                                    }
-
-                                    //if (InterleaveLed != lastInterleaveLed || !initialized)
-                                    //{
-                                    //    Helpers.SendConfig(capture, Helpers.CreateCommand(32, 4, (byte)(InterleaveLed ? 0x00 : 0x03)));
-                                    //    lastInterleaveLed = InterleaveLed;
-                                    //}
-
-                                    initialized = true;
-
-                                    // Capture frame
-                                    var image = capture.QueryFrame();
-
-                                    // Get latest hardware frame count
-                                    var frameNumber = (int)capture.GetProperty(CaptureProperty.Contrast);
-
-                                    // Get BNO data
-                                    var q = new Quaternion
-                                    {
-                                        W = QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Saturation),
-                                        X = QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Hue),
-                                        Y = QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Gain),
-                                        Z = QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Brightness)
-                                    };
-
-                                    if (image == null)
-                                    {
-                                        observer.OnCompleted();
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        observer.OnNext(new UclaMiniscopeV4Frame(image.Clone(), q, frameNumber, gate));
+                                        var scaled = 2.55 * LedBrightness;
+                                        Helpers.SendConfig(capture, Helpers.CreateCommand(32, 1, (byte)(255 - scaled)));
+                                        Helpers.SendConfig(capture, Helpers.CreateCommand(88, 0, 114, (byte)(255 - scaled)));
+                                        lastLedBrightness = LedBrightness;
                                     }
                                 }
-                            }
-                            finally
-                            {
-                                IssueStopCommands(capture, originalState);
-                                capture.Close();
-                            }
+                                else
+                                {
+                                    if (LedBrightness != lastLedBrightness || !initialized)
+                                    {
+                                        var scaled = 2.55 * LedBrightness;
+                                        Helpers.SendConfig(capture, Helpers.CreateCommand(32, 1, (byte)(255 - scaled)));
+                                        Helpers.SendConfig(capture, Helpers.CreateCommand(88, 0, 114, (byte)(255 - scaled)));
+                                        lastLedBrightness = LedBrightness;
+                                    }
+                                }
 
+                                if (Focus != lastEWL || !initialized)
+                                {
+                                    var scaled = Focus * 1.27;
+                                    Helpers.SendConfig(capture, Helpers.CreateCommand(238, 8, (byte)(127 + scaled), 2));
+                                    lastEWL = Focus;
+                                }
+
+                                if (FramesPerSecond != lastFps || !initialized)
+                                {
+                                    byte v0 = (byte)((int)FramesPerSecond & 0x00000FF);
+                                    byte v1 = (byte)(((int)FramesPerSecond & 0x000FF00) >> 8);
+                                    Helpers.SendConfig(capture, Helpers.CreateCommand(32, 5, 0, 201, v0, v1));
+                                    lastFps = FramesPerSecond;
+                                }
+
+                                if (SensorGain != lastSensorGain || !initialized)
+                                {
+                                    Helpers.SendConfig(capture, Helpers.CreateCommand(32, 5, 0, 204, 0, (byte)SensorGain));
+                                    lastSensorGain = SensorGain;
+                                }
+
+                                //if (InterleaveLed != lastInterleaveLed || !initialized)
+                                //{
+                                //    Helpers.SendConfig(capture, Helpers.CreateCommand(32, 4, (byte)(InterleaveLed ? 0x00 : 0x03)));
+                                //    lastInterleaveLed = InterleaveLed;
+                                //}
+
+                                initialized = true;
+
+                                // Capture frame
+                                var image = capture.QueryFrame();
+
+                                if (image == null)
+                                {
+                                    collectFramesCancellation.Cancel();
+                                    break;
+                                }
+
+                                // Get latest hardware frame count
+                                var frameNumber = (int)capture.GetProperty(CaptureProperty.Contrast);
+
+                                // Get BNO data
+                                var q = new Quaternion
+                                {
+                                    W = QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Saturation),
+                                    X = QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Hue),
+                                    Y = QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Gain),
+                                    Z = QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Brightness)
+                                };
+
+                                frameQueue.Add(new UclaMiniscopeV4Frame(image.Clone(), q, frameNumber, gate));
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            collectFramesCancellation.Cancel();
+                            throw;
+                        }
+                        finally
+                        {
+                            IssueStopCommands(capture, originalState);
+                            capture.Close();
                         }
                     }
                 },
-                    cancellationToken,
-                    TaskCreationOptions.LongRunning,
-                    TaskScheduler.Default);
+                collectFramesToken,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
+
+                distributeFrames = Task.Factory.StartNew(() =>
+                {
+                    try
+                    {
+                        while (!collectFramesToken.IsCancellationRequested)
+                        {
+                            if (frameQueue.TryTake(out var frame))
+                            {
+                                observer.OnNext(frame);
+                            }
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+#if DEBUG
+                        Console.WriteLine($"Frame distribution task has been cancelled by {GetType()}");
+#endif
+                    }
+                },
+                collectFramesToken,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
+
+                return acquisition = Task.WhenAll(distributeFrames, readFrames).ContinueWith(t =>
+                {
+                    if (readFrames.IsFaulted && readFrames.Exception is AggregateException exception)
+                    {
+                        var error = exception.InnerExceptions.Count == 1 ? exception.InnerExceptions[0] : exception;
+                        observer.OnError(error);
+                    }
+                    else
+                    {
+                        observer.OnCompleted();
+                    }
+
+                    collectFramesCancellation?.Dispose();
+                    collectFramesCancellation = null;
+
+                    frameQueue?.Dispose();
+                    frameQueue = null;
+
+                    acquisition = Task.CompletedTask;
+                });
             })
             .PublishReconnectable()
             .RefCount();
