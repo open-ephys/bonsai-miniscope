@@ -43,7 +43,7 @@ namespace OpenEphys.Miniscope
         [Description("Frames captured per second.")]
         public FrameRateV4 FramesPerSecond { get; set; } = FrameRateV4.Fps30;
 
-        [Description("If true, only update one element of the orientation quaternion, W, X, Y, or Z, per frame. Potentially useful if actual frame rate is not meeting requested FramesPerSecond.")]
+        [Description("If true, only update the orientation quaternion once every 4 frames. Potentially useful if actual frame rate is not meeting requested FramesPerSecond.")]
         public bool LimitOrientationUpdates { get; set; } = false;
 
         // TODO: Does not work with DAQ for some reason
@@ -129,7 +129,8 @@ namespace OpenEphys.Miniscope
                         var lastEWL = Focus;
                         var lastFps = FramesPerSecond;
                         var lastSensorGain = SensorGain;
-                        var lastQuaterion = Quaternion.Identity;
+                        var lastQuaternion = Quaternion.Identity;
+                        var outputQuaternion = Quaternion.Identity;
                         ulong quaterionUpdateCounter = 0;
                         // var lastInterleaveLed = InterleaveLed;
                         
@@ -212,13 +213,15 @@ namespace OpenEphys.Miniscope
 
                                     var q = new Quaternion
                                     {
-                                        W = (!LimitOrientationUpdates || index == 0) ? QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Saturation) : lastQuaterion.W,
-                                        X = (!LimitOrientationUpdates || index == 1) ? QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Hue) : lastQuaterion.X,
-                                        Y = (!LimitOrientationUpdates || index == 2) ? QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Gain) : lastQuaterion.Y,
-                                        Z = (!LimitOrientationUpdates || index == 3) ? QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Brightness) : lastQuaterion.Z
+                                        W = (!LimitOrientationUpdates || index == 0) ? QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Saturation) : lastQuaternion.W,
+                                        X = (!LimitOrientationUpdates || index == 1) ? QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Hue) : lastQuaternion.X,
+                                        Y = (!LimitOrientationUpdates || index == 2) ? QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Gain) : lastQuaternion.Y,
+                                        Z = (!LimitOrientationUpdates || index == 3) ? QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Brightness) : lastQuaternion.Z
                                     };
 
-                                    lastQuaterion = q;
+                                    lastQuaternion = q;
+                                    if (!LimitOrientationUpdates || index == 3)
+                                        outputQuaternion = q;
 
                                     if (image == null)
                                     {
@@ -227,7 +230,7 @@ namespace OpenEphys.Miniscope
                                     }
                                     else
                                     {
-                                        observer.OnNext(new UclaMiniscopeV4Frame(image.Clone(), q, frameNumber, gate));
+                                        observer.OnNext(new UclaMiniscopeV4Frame(image.Clone(), outputQuaternion, frameNumber, gate));
                                     }
                                 }
                             }
