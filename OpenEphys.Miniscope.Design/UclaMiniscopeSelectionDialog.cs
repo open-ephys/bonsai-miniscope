@@ -41,7 +41,7 @@ namespace OpenEphys.Miniscope.Design
                     var originalState = scopeKind switch
                     {
                         ScopeKind.V3 => UclaMiniscopeV3.IssueStartCommands(capture),
-                        ScopeKind.V4 => UclaMiniscopeV4.IssueStartCommands(capture),
+                        ScopeKind.V4 => UclaMiniscopeV4Old.IssueStartCommands(capture),
                         ScopeKind.MiniCam => UclaMiniCam.IssueStartCommands(capture),
                         _ => throw new NotImplementedException(),
                     };
@@ -69,7 +69,7 @@ namespace OpenEphys.Miniscope.Design
                             UclaMiniscopeV3.IssueStopCommands(capture, originalState);
                             break;
                         case ScopeKind.V4:
-                            UclaMiniscopeV4.IssueStopCommands(capture, originalState);
+                            UclaMiniscopeV4Old.IssueStopCommands(capture, originalState);
                             break;
                         case ScopeKind.MiniCam:
                             UclaMiniCam.IssueStopCommands(capture, originalState);
