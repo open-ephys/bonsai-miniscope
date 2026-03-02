@@ -112,6 +112,36 @@ namespace OpenEphys.Miniscope
 
         readonly ArrayPool<byte> framePool = ArrayPool<byte>.Create(maxArrayLength: 1000 * 1000 * 2, maxArraysPerBucket: 60);
 
+        private static unsafe UclaMiniscopeV4Frame CreateFrameFromRaw(MiniscopeV4RawFrame frame, bool oldMetadataMethod, MiniscopeV4MediaCapture capture)
+        {
+            fixed (byte* ptr = frame.DataArray)
+            {
+                IntPtr dataPtr = new IntPtr(ptr);
+                FrameInfo frameInfo;
+                Quaternion quat;
+                if (oldMetadataMethod)
+                {
+                    frameInfo.State = capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Gamma);
+                    frameInfo.FrameTime = 0;
+                    frameInfo.FrameCount = capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Contrast);
+                    quat.W = QuatConvFactor * capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Saturation);
+                    quat.X = QuatConvFactor * capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Hue);
+                    quat.Y = QuatConvFactor * capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Gain);
+                    quat.Z = QuatConvFactor * capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Brightness);
+                }
+                else
+                {
+                    ExtractMetadata(dataPtr, out frameInfo, out quat);
+                }
+                using (var image = new IplImage(new OpenCV.Net.Size(frame.PixelWidth, frame.PixelHeight), IplDepth.U8, 2, dataPtr))
+                {
+                    var rgbImage = new IplImage(image.Size, IplDepth.U8, 3);
+                    CV.CvtColor(image, rgbImage, ColorConversion.Yuv2BgrYuy2);
+                    return new UclaMiniscopeV4Frame(rgbImage, quat, (int)frameInfo.FrameCount, (frameInfo.State & 0x01) != 0);
+                }
+            }
+        }
+
 
         public override IObservable<UclaMiniscopeV4Frame> Generate()
         {
@@ -137,37 +167,12 @@ namespace OpenEphys.Miniscope
                             {
                                 await foreach (MiniscopeV4RawFrame frame in frameChannel.Reader.ReadAllAsync(frameCancellationToken))
                                 {
+                                    // NB : This try block ensures that the frames read by the frameChannel are all
+                                    // returned to the pool if something goes wrong in CreateFrameFromRaw
+                                    // actual exceptions are thrown to the outer try..catch
                                     try
                                     {
-                                        unsafe
-                                        {
-                                            fixed (byte* ptr = frame.DataArray)
-                                            {
-                                                IntPtr dataPtr = new IntPtr(ptr);
-                                                FrameInfo frameInfo;
-                                                Quaternion quat;
-                                                if (oldMetadataMethod)
-                                                {
-                                                    frameInfo.State = capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Gamma);
-                                                    frameInfo.FrameTime = 0;
-                                                    frameInfo.FrameCount = capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Contrast);
-                                                    quat.W = QuatConvFactor * capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Saturation);
-                                                    quat.X = QuatConvFactor * capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Hue);
-                                                    quat.Y = QuatConvFactor * capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Gain);
-                                                    quat.Z = QuatConvFactor * capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Brightness);
-                                                }
-                                                else
-                                                {
-                                                    ExtractMetadata(dataPtr, out frameInfo, out quat);
-                                                }
-                                                using (var image = new IplImage(new OpenCV.Net.Size(frame.PixelWidth, frame.PixelHeight), IplDepth.U8, 2, dataPtr))
-                                                {
-                                                    var rgbImage = new IplImage(image.Size, IplDepth.U8, 3);
-                                                    CV.CvtColor(image, rgbImage, ColorConversion.Yuv2BgrYuy2);
-                                                    frameObserver.OnNext(new UclaMiniscopeV4Frame(rgbImage, quat, (int)frameInfo.FrameCount, (frameInfo.State & 0x01) != 0));
-                                                }
-                                            }
-                                        }
+                                        frameObserver.OnNext(CreateFrameFromRaw(frame, oldMetadataMethod, capture));
                                     }
                                     finally
                                     {
@@ -212,7 +217,7 @@ namespace OpenEphys.Miniscope
                             .Select(c => new { Gate = c.Trigger, RespectsTrigger = LedRespectsTrigger, Brightness = LedBrightness })
                             .DistinctUntilChanged().Select(val =>
                             {
-                                if (val.RespectsTrigger && !val.Gate) return (byte)0;
+                                if (val.RespectsTrigger && !val.Gate) return (byte)255;
                                 return (byte)(255 - 2.55 * val.Brightness);
                             }).DistinctUntilChanged().Subscribe(val =>
                             {
@@ -227,10 +232,6 @@ namespace OpenEphys.Miniscope
                             {
                                 capture.I2CInterface.QueueCommand(32, 5, 0, 204, 0, (byte)val);
                             }));
-
-                        subscriptionList.Add(throttledFrame.Subscribe(_ => capture.I2CInterface.CommitCommands()));
-                        subscriptionList.Add(frameObservable.Subscribe(observer));
-
 
                         // Focus
                         subscriptionList.Add(throttledFrame
@@ -249,9 +250,12 @@ namespace OpenEphys.Miniscope
                                 capture.I2CInterface.QueueCommand(32, 5, 0, 201, v0, v1);
                             }));
 
+                        subscriptionList.Add(throttledFrame.Subscribe(_ => capture.I2CInterface.CommitCommands()));
+                        subscriptionList.Add(frameObservable.Subscribe(observer));
+
 
                         // Start acquisition
-                        
+
                         await capture.Start(Width, Height, cancellationToken);
                         await Task.Delay(-1, cancellationToken);
 
