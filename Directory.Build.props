@@ -20,6 +20,7 @@
     <PackageType>Dependency;BonsaiLibrary</PackageType>
   </PropertyGroup>
 
+  <Import Project="Local.build.props" Condition="Exists('Local.build.props')" />
   <Import Project="build/Version.props" />
 
   <ItemGroup>

@@ -70,7 +70,7 @@ namespace OpenEphys.Miniscope
         public bool LedRespectsTrigger { get; set; } = false;
 
 
-        static internal void IssueStartCommands(II2COverUVC i2c, IUvcProcessingUnit processingUnit)
+        static internal void IssueStartCommands(IMiniscopeDaqControls controls)
         {
             // 8-bit            7-bit           Description
             // ---------------------------------------------
@@ -82,31 +82,30 @@ namespace OpenEphys.Miniscope
             // 238 (0xee)       119 (0x77)      MAX14574 EWL driver
             // 32 (0x20)        16 (0x10)       ATTINY MCU
 
-            i2c.QueueCommand(192, 31, 16); // I2C: 0x60
-            i2c.QueueCommand(176, 5, 32); // I2C:0x58
-            i2c.QueueCommand(192, 34, 2);
-            i2c.QueueCommand(192, 32, 10);
-            i2c.QueueCommand(192, 7, 176);
-            i2c.QueueCommand(176, 15, 2);
-            i2c.QueueCommand(176, 30, 10);
-            i2c.QueueCommand(192, 8, 32, 238, 160, 80);
-            i2c.QueueCommand(192, 16, 32, 238, 88, 80);
-            i2c.QueueCommand(80, 65, 6, 7); // BNO Axis mapping and sign
-            i2c.QueueCommand(80, 61, 12); // BNO operation mode is NDOF
-            i2c.QueueCommand(254, 0); // 0x7F
-            i2c.QueueCommand(238, 3, 3); // 0x77
-            i2c.CommitCommands();
+            controls.I2C.QueueCommand(192, 31, 16); // I2C: 0x60
+            controls.I2C.QueueCommand(176, 5, 32); // I2C:0x58
+            controls.I2C.QueueCommand(192, 34, 2);
+            controls.I2C.QueueCommand(192, 32, 10);
+            controls.I2C.QueueCommand(192, 7, 176);
+            controls.I2C.QueueCommand(176, 15, 2);
+            controls.I2C.QueueCommand(176, 30, 10);
+            controls.I2C.QueueCommand(192, 8, 32, 238, 160, 80);
+            controls.I2C.QueueCommand(192, 16, 32, 238, 88, 80);
+            controls.I2C.QueueCommand(80, 65, 6, 7); // BNO Axis mapping and sign
+            controls.I2C.QueueCommand(80, 61, 12); // BNO operation mode is NDOF
+            controls.I2C.QueueCommand(254, 0); // 0x7F
+            controls.I2C.QueueCommand(238, 3, 3); // 0x77
+            controls.I2C.CommitCommands();
 
-            // Abused UVC to enable TTLs
-            processingUnit.ProcessingUnitWrite(UvcVideoControls.Saturation, 1);
+            controls.EnableFrameTTLs(true);
         }
 
-        static internal void IssueStopCommands(II2COverUVC i2c, IUvcProcessingUnit processingUnit)
+        static internal void IssueStopCommands(IMiniscopeDaqControls controls)
         {
-            i2c.QueueCommand(32, 1, 255);
-            i2c.QueueCommand(88, 0, 114, 255);
-            i2c.CommitCommands();
-            processingUnit.ProcessingUnitWrite(UvcVideoControls.Saturation, 0);
+            controls.EnableFrameTTLs(false);
+            controls.I2C.QueueCommand(32, 1, 255);
+            controls.I2C.QueueCommand(88, 0, 114, 255);
+            controls.I2C.CommitCommands();
         }
 
 
@@ -201,7 +200,7 @@ namespace OpenEphys.Miniscope
                         }).Publish().RefCount();
 
                         // Configure device
-                        IssueStartCommands(capture.I2CInterface, capture.ProcessingUnit);
+                        IssueStartCommands(capture.DaqControls);
 
                         // Prepare hardware controls and connection
 
@@ -221,8 +220,8 @@ namespace OpenEphys.Miniscope
                                 return (byte)(255 - 2.55 * val.Brightness);
                             }).DistinctUntilChanged().Subscribe(val =>
                             {
-                                capture.I2CInterface.QueueCommand(32, 1, val);
-                                capture.I2CInterface.QueueCommand(88, 0, 114, val);
+                                capture.DaqControls.I2C.QueueCommand(32, 1, val);
+                                capture.DaqControls.I2C.QueueCommand(88, 0, 114, val);
                             }));
 
                         // SensorGain
@@ -230,7 +229,7 @@ namespace OpenEphys.Miniscope
                         subscriptionList.Add(throttledFrame
                             .Select(c => SensorGain).DistinctUntilChanged().Subscribe(val =>
                             {
-                                capture.I2CInterface.QueueCommand(32, 5, 0, 204, 0, (byte)val);
+                                capture.DaqControls.I2C.QueueCommand(32, 5, 0, 204, 0, (byte)val);
                             }));
 
                         // Focus
@@ -238,7 +237,7 @@ namespace OpenEphys.Miniscope
                             .Select(c => Focus).DistinctUntilChanged().Subscribe(val =>
                             {
                                 var scaled = val * 1.27;
-                                capture.I2CInterface.QueueCommand(238, 8, (byte)(127 + scaled), 2);
+                                capture.DaqControls.I2C.QueueCommand(238, 8, (byte)(127 + scaled), 2);
                             }));
 
                         // FPS
@@ -247,10 +246,10 @@ namespace OpenEphys.Miniscope
                             {
                                 byte v0 = (byte)((int)val & 0x00000FF);
                                 byte v1 = (byte)(((int)val & 0x000FF00) >> 8);
-                                capture.I2CInterface.QueueCommand(32, 5, 0, 201, v0, v1);
+                                capture.DaqControls.I2C.QueueCommand(32, 5, 0, 201, v0, v1);
                             }));
 
-                        subscriptionList.Add(throttledFrame.Subscribe(_ => capture.I2CInterface.CommitCommands()));
+                        subscriptionList.Add(throttledFrame.Subscribe(_ => capture.DaqControls.I2C.CommitCommands()));
                         subscriptionList.Add(frameObservable.Subscribe(observer));
 
 
@@ -264,7 +263,7 @@ namespace OpenEphys.Miniscope
                     finally
                     {
                         subscriptionList.Dispose();
-                        IssueStopCommands(capture.I2CInterface, capture.ProcessingUnit);
+                        IssueStopCommands(capture.DaqControls);
                     }
                 }
 

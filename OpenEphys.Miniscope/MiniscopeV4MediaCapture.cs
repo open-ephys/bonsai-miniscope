@@ -18,7 +18,7 @@ namespace OpenEphys.Miniscope
 {
     internal class MiniscopeV4MediaCapture : IDisposable
     {
-        public II2COverUVC I2CInterface { get; }
+        public IMiniscopeDaqControls DaqControls { get; }
         public IUvcProcessingUnit ProcessingUnit { get; }
         public Version FwVersion { get; }
 
@@ -42,13 +42,13 @@ namespace OpenEphys.Miniscope
             if (uvcControls.HasExtensionUnit)
             {
                 FwVersion = uvcControls.FwVersion;
-                I2CInterface = new ExtendedI2COverUVC(uvcControls);
+                DaqControls = new ExtendedMiniscopeDaqControls(uvcControls);
                 //I2CInterface = new LegacyI2COverUVC(uvcControls);
             }
             else
             {
                 FwVersion = new Version(1,0,0);
-                I2CInterface = new LegacyI2COverUVC(uvcControls);
+                DaqControls = new LegacyMiniscopeDaqControls(uvcControls);
             }
             ProcessingUnit = uvcControls;
             
