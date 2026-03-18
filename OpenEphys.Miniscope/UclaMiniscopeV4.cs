@@ -123,7 +123,9 @@ namespace OpenEphys.Miniscope
                 {
                     var rgbImage = new IplImage(image.Size, IplDepth.U8, 3);
                     CV.CvtColor(image, rgbImage, ColorConversion.Yuv2BgrYuy2);
-                    return new UclaMiniscopeV4Frame(rgbImage, quat, (int)frameInfo.FrameCount, (frameInfo.State & 0x01) != 0);
+                    bool trigger = (frameInfo.State & 0x01) != 0;
+                    bool aux = (frameInfo.State & 0x02) != 0;
+                    return new UclaMiniscopeV4Frame(rgbImage, quat, (int)frameInfo.FrameCount,trigger, aux);
                 }
             }
         }
@@ -194,7 +196,7 @@ namespace OpenEphys.Miniscope
                         // to quickly, we limit in time (right now to ~2 frames time). This affects manual controls, so
                         // having this limit is not noticeable
                         // We also send a dummy frame to the controls, to set the settings such as FPS before we receive the first frame
-                        var throttledFrame = Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, false))
+                        var throttledFrame = Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, false, false))
                         .Concat(frameObservable).Sample(new TimeSpan(0, 0, 0, 0, 67)).Publish().RefCount();
                         
                         //Brightness
