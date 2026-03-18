@@ -39,17 +39,13 @@ namespace OpenEphys.Miniscope
             this.capture = capture;
             this.videoController = capture.VideoDeviceController;
             var uvcControls = new MediaCaptureUvcControls(videoController);
-            if (uvcControls.HasExtensionUnit)
+            if (!uvcControls.HasExtensionUnit)
             {
-                FwVersion = uvcControls.FwVersion;
-                DaqControls = new ExtendedMiniscopeDaqControls(uvcControls);
-                //I2CInterface = new LegacyI2COverUVC(uvcControls);
+                 // TODO: Add the proper link
+                throw new NotSupportedException("Unsupported DAQ Firmware.\nPlease update to the latest Miniscope DAQ firmware from Open Ephys");
             }
-            else
-            {
-                FwVersion = new Version(1,0,0);
-                DaqControls = new LegacyMiniscopeDaqControls(uvcControls);
-            }
+            FwVersion = uvcControls.FwVersion;
+            DaqControls = new ExtendedMiniscopeDaqControls(uvcControls);
             ProcessingUnit = uvcControls;
             
         }
@@ -160,6 +156,11 @@ namespace OpenEphys.Miniscope
         public static async Task<MiniscopeV4MediaCapture> Create(int deviceIndex, ChannelWriter<MiniscopeV4RawFrame> channel, ArrayPool<byte> framePool)
         {
             var deviceList = await GetConnectedMiniscopes();
+            if (deviceIndex < 0 || deviceIndex >= deviceList.Count)
+            {
+                throw new ArgumentOutOfRangeException("Invalid Miniscope DAQ Index");
+            }
+
             var deviceId = deviceList[deviceIndex];
             var capture = new MediaCapture();
             var captureSettings = new MediaCaptureInitializationSettings

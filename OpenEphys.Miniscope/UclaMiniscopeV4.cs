@@ -111,27 +111,14 @@ namespace OpenEphys.Miniscope
 
         readonly ArrayPool<byte> framePool = ArrayPool<byte>.Create(maxArrayLength: 1000 * 1000 * 2, maxArraysPerBucket: 60);
 
-        private static unsafe UclaMiniscopeV4Frame CreateFrameFromRaw(MiniscopeV4RawFrame frame, bool oldMetadataMethod, MiniscopeV4MediaCapture capture)
+        private static unsafe UclaMiniscopeV4Frame CreateFrameFromRaw(MiniscopeV4RawFrame frame, MiniscopeV4MediaCapture capture)
         {
             fixed (byte* ptr = frame.DataArray)
             {
                 IntPtr dataPtr = new IntPtr(ptr);
                 FrameInfo frameInfo;
                 Quaternion quat;
-                if (oldMetadataMethod)
-                {
-                    frameInfo.State = capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Gamma);
-                    frameInfo.FrameTime = 0;
-                    frameInfo.FrameCount = capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Contrast);
-                    quat.W = QuatConvFactor * capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Saturation);
-                    quat.X = QuatConvFactor * capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Hue);
-                    quat.Y = QuatConvFactor * capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Gain);
-                    quat.Z = QuatConvFactor * capture.ProcessingUnit.ProcessingUnitRead(UvcVideoControls.Brightness);
-                }
-                else
-                {
-                    ExtractMetadata(dataPtr, out frameInfo, out quat);
-                }
+                ExtractMetadata(dataPtr, out frameInfo, out quat);
                 using (var image = new IplImage(new OpenCV.Net.Size(frame.PixelWidth, frame.PixelHeight), IplDepth.U8, 2, dataPtr))
                 {
                     var rgbImage = new IplImage(image.Size, IplDepth.U8, 3);
@@ -155,7 +142,6 @@ namespace OpenEphys.Miniscope
                 using (var capture = await MiniscopeV4MediaCapture.Create(Index, frameChannel, framePool))
                 {
                     FirmwareVersion = capture.FwVersion;
-                    bool oldMetadataMethod = (FirmwareVersion < new Version(1, 1, 0));
                     var subscriptionList = new CompositeDisposable();
                     try
                     {
@@ -171,7 +157,7 @@ namespace OpenEphys.Miniscope
                                     // actual exceptions are thrown to the outer try..catch
                                     try
                                     {
-                                        frameObserver.OnNext(CreateFrameFromRaw(frame, oldMetadataMethod, capture));
+                                        frameObserver.OnNext(CreateFrameFromRaw(frame, capture));
                                     }
                                     finally
                                     {
