@@ -2,26 +2,24 @@
 using System.Buffers;
 using System.ComponentModel;
 using System.Drawing.Design;
-using System.IO;
+using System.Globalization;
+using System.Linq;
 using System.Numerics;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Reactive.Subjects;
-using System.Runtime.InteropServices;
-using System.Text.RegularExpressions;
-using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 using Bonsai;
-using OpenCV.Net;
-using System.Collections;
-using System.Collections.Generic;
 using Bonsai.Reactive;
-using Bonsai.Expressions;
+using OpenCV.Net;
 
 namespace OpenEphys.Miniscope
 {
+    /// <summary>
+    /// Produces a data sequence from a UCLA Miniscope V4, including fluorescence images,
+    /// head-orientation data, and digital I/O state.
+    /// </summary>
     [Description("Produces a data sequence from a UCLA Miniscope V4.")]
     public class UclaMiniscopeV4 : Source<UclaMiniscopeV4Frame>
     {
@@ -32,30 +30,49 @@ namespace OpenEphys.Miniscope
         // 1 quaternion = 2^14 bits
         const float QuatConvFactor = 1.0f / (1 << 14);
 
+        /// <summary>
+        /// Gets or sets the index of the camera from which to acquire images.
+        /// </summary>
         [TypeConverter(typeof(MiniscopeV4IndexTypeConverter))]
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 
+        /// <summary>
+        /// Gets or sets the excitation LED brightness as a percent of maximum.
+        /// </summary>
         [Precision(1, 0.1)]
         [Range(0, 100)]
         [Editor(DesignTypes.SliderEditor, typeof(UITypeEditor))]
         [Description("Excitation LED brightness (percent of max).")]
         public double LedBrightness { get; set; } = 0;
 
+        /// <summary>
+        /// Gets or sets the electro-wetting lens focal plane adjustment as a percent of range around nominal.
+        /// </summary>
         [Precision(1, 0.1)]
         [Range(-100, 100)]
         [Editor(DesignTypes.SliderEditor, typeof(UITypeEditor))]
         [Description("Electro-wetting lens focal plane adjustment (percent of range around nominal).")]
         public double Focus { get; set; } = 0;
 
+        /// <summary>
+        /// Gets or sets the image sensor gain setting.
+        /// </summary>
         [TypeConverter(typeof(GainV4TypeConverter))]
         [Description("Image sensor gain setting.")]
         public GainV4 SensorGain { get; set; } = GainV4.Low;
 
+        /// <summary>
+        /// Gets or sets the frame rate in Hz.
+        /// </summary>
         [TypeConverter(typeof(FrameRateV4TypeConverter))]
         [Description("Frames captured per second.")]
         public FrameRateV4 FramesPerSecond { get; set; } = FrameRateV4.Fps30;
 
+
+        /// <summary>
+        /// Gets the firmware version reported by the connected DAQ.
+        /// </summary>
         [Description("Firmware version")]
         [XmlIgnore]
         public Version FirmwareVersion { get; private set; } = new Version(0,0,0);
@@ -64,6 +81,13 @@ namespace OpenEphys.Miniscope
         //[Description("Only turn on excitation LED during camera exposures.")]
         //public bool InterleaveLed { get; set; } = false;
 
+        /// <summary>
+        /// Gets or sets a value indicating whether to turn off the LED when the trigger input is low.
+        /// </summary>
+        /// <remarks>
+        /// Note that this pin is low by default. Therefore, if it is not driven and this option is set to
+        /// <see langword="true"/>, the LED will not turn on.
+        /// </remarks>
         [Description("Turn off the LED when the trigger input is low. " +
             "Note that this pin is low by default. Therefore, if it is not driven and " +
             "this option is set to true, the LED will not turn on.")]
@@ -115,11 +139,9 @@ namespace OpenEphys.Miniscope
         {
             fixed (byte* ptr = frame.DataArray)
             {
-                IntPtr dataPtr = new IntPtr(ptr);
-                FrameInfo frameInfo;
-                Quaternion quat;
-                ExtractMetadata(dataPtr, out frameInfo, out quat);
-                using (var image = new IplImage(new OpenCV.Net.Size(frame.PixelWidth, frame.PixelHeight), IplDepth.U8, 2, dataPtr))
+                IntPtr dataPtr = new(ptr);
+                ExtractMetadata(dataPtr, out var frameInfo, out var quat);
+                using (var image = new IplImage(new Size(frame.PixelWidth, frame.PixelHeight), IplDepth.U8, 2, dataPtr))
                 {
                     var rgbImage = new IplImage(image.Size, IplDepth.U8, 3);
                     CV.CvtColor(image, rgbImage, ColorConversion.Yuv2BgrYuy2);
@@ -130,16 +152,21 @@ namespace OpenEphys.Miniscope
             }
         }
 
-
+        /// <summary>
+        /// Returns the data sequence produced by the connected Miniscope V4.
+        /// </summary>
+        /// <returns>A sequence of <see cref="UclaMiniscopeV4Frame"/> values.</returns>
         public override IObservable<UclaMiniscopeV4Frame> Generate()
         {
             return Observable.Create<UclaMiniscopeV4Frame>(async (observer, cancellationToken) =>
             {
-                var channelOptions = new BoundedChannelOptions(120);
-                channelOptions.AllowSynchronousContinuations = false;
-                channelOptions.FullMode = BoundedChannelFullMode.DropOldest;
-                channelOptions.SingleReader = true;
-                channelOptions.SingleWriter = true;
+                var channelOptions = new BoundedChannelOptions(120)
+                {
+                    AllowSynchronousContinuations = false,
+                    FullMode = BoundedChannelFullMode.DropOldest,
+                    SingleReader = true,
+                    SingleWriter = true
+                };
                 var frameChannel = Channel.CreateBounded<MiniscopeV4RawFrame>(channelOptions, (frame) => framePool.Return(frame.DataArray));
                 using (var capture = await MiniscopeV4MediaCapture.Create(Index, frameChannel, framePool))
                 {
@@ -199,7 +226,7 @@ namespace OpenEphys.Miniscope
                         var throttledFrame = Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, false, false))
                         .Concat(frameObservable).Sample(new TimeSpan(0, 0, 0, 0, 67)).Publish().RefCount();
                         
-                        //Brightness
+                        // Brightness
                         subscriptionList.Add(throttledFrame
                             .Select(c => new { Gate = c.Trigger, RespectsTrigger = LedRespectsTrigger, Brightness = LedBrightness })
                             .DistinctUntilChanged().Select(val =>
@@ -213,16 +240,15 @@ namespace OpenEphys.Miniscope
                             }));
 
                         // SensorGain
-
-                        subscriptionList.Add(throttledFrame
-                            .Select(c => SensorGain).DistinctUntilChanged().Subscribe(val =>
+                        subscriptionList.Add(
+                            throttledFrame.Select(_ => SensorGain).DistinctUntilChanged().Subscribe(val =>
                             {
                                 capture.DaqControls.I2C.QueueCommand(32, 5, 0, 204, 0, (byte)val);
                             }));
 
                         // Focus
                         subscriptionList.Add(throttledFrame
-                            .Select(c => Focus).DistinctUntilChanged().Subscribe(val =>
+                            .Select(_ => Focus).DistinctUntilChanged().Subscribe(val =>
                             {
                                 var scaled = val * 1.27;
                                 capture.DaqControls.I2C.QueueCommand(238, 8, (byte)(127 + scaled), 2);
@@ -230,7 +256,7 @@ namespace OpenEphys.Miniscope
 
                         // FPS
                         subscriptionList.Add(throttledFrame
-                            .Select(c => FramesPerSecond).DistinctUntilChanged().Subscribe(val =>
+                            .Select(_ => FramesPerSecond).DistinctUntilChanged().Subscribe(val =>
                             {
                                 byte v0 = (byte)((int)val & 0x00000FF);
                                 byte v1 = (byte)(((int)val & 0x000FF00) >> 8);
@@ -242,7 +268,6 @@ namespace OpenEphys.Miniscope
 
 
                         // Start acquisition
-
                         await capture.Start(Width, Height, cancellationToken);
                         await Task.Delay(-1, cancellationToken);
 
@@ -254,12 +279,8 @@ namespace OpenEphys.Miniscope
                         IssueStopCommands(capture.DaqControls);
                     }
                 }
-
             }).PublishReconnectable().RefCount();
-
         }
-
-                      
 
         struct FrameInfo
         {
@@ -305,11 +326,18 @@ namespace OpenEphys.Miniscope
             quat = new Quaternion(qX, qY, qZ, qW);
         }
     }
-    // NB: Needs a unique name, even though its a class member, for de/serialization without issues
+
+
+    /// <summary>
+    /// Specifies the image sensor gain options for the UCLA Miniscope V4.
+    /// </summary>
     public enum GainV4
     {
+        /// <summary>Low sensor gain.</summary>
         Low = 225,
+        /// <summary>Medium sensor gain.</summary>
         Medium = 228,
+        /// <summary>High sensor gain.</summary>
         High = 36,
     }
 
@@ -331,21 +359,46 @@ namespace OpenEphys.Miniscope
         }
     }
 
-    // NB: Needs a unique name, even though its a class member, for de/serialization without issues
+    /// <summary>
+    /// Specifies the available frame rate options for the UCLA Miniscope V4.
+    /// </summary>
     public enum FrameRateV4
     {
+        /// <summary>10 frames per second.</summary>
         Fps10 = 39 & 0x000000FF | 16 << 8,
+        /// <summary>15 frames per second.</summary>
         Fps15 = 26 & 0x000000FF | 11 << 8,
+        /// <summary>20 frames per second.</summary>
         Fps20 = 19 & 0x000000FF | 136 << 8,
+        /// <summary>25 frames per second.</summary>
         Fps25 = 15 & 0x000000FF | 160 << 8,
+        /// <summary>30 frames per second.</summary>
         Fps30 = 12 & 0x000000FF | 228 << 8,
     };
 
+    /// <summary>
+    /// Holds the raw byte buffer and metadata for a single frame received from the Miniscope V4 DAQ.
+    /// </summary>
     public struct MiniscopeV4RawFrame
     {
+        /// <summary>
+        /// Gets or sets the byte array containing the raw frame pixel data.
+        /// </summary>
         public byte[] DataArray;
+
+        /// <summary>
+        /// Gets or sets the number of valid bytes in <see cref="DataArray"/>.
+        /// </summary>
         public uint DataLength;
+
+        /// <summary>
+        /// Gets or sets the pixel width of the frame.
+        /// </summary>
         public int PixelWidth;
+
+        /// <summary>
+        /// Gets or sets the pixel height of the frame.
+        /// </summary>
         public int PixelHeight;
     }
 
@@ -356,6 +409,17 @@ namespace OpenEphys.Miniscope
         {
         }
 
+         static string ToDisplayString(FrameRateV4 fps) => fps switch
+         {
+                FrameRateV4.Fps10 => "10 Hz",
+                FrameRateV4.Fps15 => "15 Hz",
+                FrameRateV4.Fps20 => "20 Hz",
+                FrameRateV4.Fps25 => "25 Hz",
+                FrameRateV4.Fps30 => "30 Hz",
+                _ => fps.ToString()
+         };
+
+        /// <inheritdoc/>
         public override StandardValuesCollection GetStandardValues(ITypeDescriptorContext context)
         {
             return new StandardValuesCollection(new[]
@@ -367,5 +431,17 @@ namespace OpenEphys.Miniscope
                 FrameRateV4.Fps30,
             });
         }
-    }
+
+
+        /// <inheritdoc/>
+        public override bool CanConvertFrom(ITypeDescriptorContext ctx, Type t) => t == typeof(string);
+
+        /// <inheritdoc/>
+        public override object ConvertFrom(ITypeDescriptorContext ctx, CultureInfo culture, object value)
+            => Enum.GetValues(typeof(FrameRateV4)).Cast<FrameRateV4>().First(r => ToDisplayString(r) == (string)value);
+
+        /// <inheritdoc/>
+        public override object ConvertTo(ITypeDescriptorContext ctx, CultureInfo culture, object value, Type destType)
+            => ToDisplayString((FrameRateV4)value);
+}
 }
