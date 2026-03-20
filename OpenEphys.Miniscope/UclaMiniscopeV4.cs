@@ -1,14 +1,25 @@
 ﻿using System;
+using System.Buffers;
 using System.ComponentModel;
 using System.Drawing.Design;
+using System.Globalization;
+using System.Linq;
 using System.Numerics;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Threading.Channels;
 using System.Threading.Tasks;
+using System.Xml.Serialization;
 using Bonsai;
+using Bonsai.Reactive;
 using OpenCV.Net;
 
 namespace OpenEphys.Miniscope
 {
+    /// <summary>
+    /// Produces a data sequence from a UCLA Miniscope V4, including fluorescence images,
+    /// head-orientation data, and digital I/O state.
+    /// </summary>
     [Description("Produces a data sequence from a UCLA Miniscope V4.")]
     public class UclaMiniscopeV4 : Source<UclaMiniscopeV4Frame>
     {
@@ -19,59 +30,72 @@ namespace OpenEphys.Miniscope
         // 1 quaternion = 2^14 bits
         const float QuatConvFactor = 1.0f / (1 << 14);
 
-        [Editor("OpenEphys.Miniscope.Design.UclaMiniscopeV4IndexEditor, OpenEphys.Miniscope.Design", typeof(UITypeEditor))]
+        /// <summary>
+        /// Gets or sets the index of the camera from which to acquire images.
+        /// </summary>
+        [TypeConverter(typeof(MiniscopeV4IndexTypeConverter))]
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 
+        /// <summary>
+        /// Gets or sets the excitation LED brightness as a percent of maximum.
+        /// </summary>
         [Precision(1, 0.1)]
         [Range(0, 100)]
         [Editor(DesignTypes.SliderEditor, typeof(UITypeEditor))]
         [Description("Excitation LED brightness (percent of max).")]
         public double LedBrightness { get; set; } = 0;
 
+        /// <summary>
+        /// Gets or sets the electro-wetting lens focal plane adjustment as a percent of range around nominal.
+        /// </summary>
         [Precision(1, 0.1)]
         [Range(-100, 100)]
         [Editor(DesignTypes.SliderEditor, typeof(UITypeEditor))]
         [Description("Electro-wetting lens focal plane adjustment (percent of range around nominal).")]
         public double Focus { get; set; } = 0;
 
+        /// <summary>
+        /// Gets or sets the image sensor gain setting.
+        /// </summary>
         [TypeConverter(typeof(GainV4TypeConverter))]
         [Description("Image sensor gain setting.")]
         public GainV4 SensorGain { get; set; } = GainV4.Low;
 
+        /// <summary>
+        /// Gets or sets the frame rate in Hz.
+        /// </summary>
         [TypeConverter(typeof(FrameRateV4TypeConverter))]
         [Description("Frames captured per second.")]
         public FrameRateV4 FramesPerSecond { get; set; } = FrameRateV4.Fps30;
 
-        [Description("If true, only update the orientation quaternion once every 4 frames. Potentially useful if actual frame rate is not meeting requested FramesPerSecond.")]
-        public bool LimitOrientationUpdates { get; set; } = false;
+
+        /// <summary>
+        /// Gets the firmware version reported by the connected DAQ.
+        /// </summary>
+        [Description("Firmware version")]
+        [XmlIgnore]
+        public Version FirmwareVersion { get; private set; } = new Version(0,0,0);
 
         // TODO: Does not work with DAQ for some reason
         //[Description("Only turn on excitation LED during camera exposures.")]
         //public bool InterleaveLed { get; set; } = false;
 
+        /// <summary>
+        /// Gets or sets a value indicating whether to turn off the LED when the trigger input is low.
+        /// </summary>
+        /// <remarks>
+        /// Note that this pin is low by default. Therefore, if it is not driven and this option is set to
+        /// <see langword="true"/>, the LED will not turn on.
+        /// </remarks>
         [Description("Turn off the LED when the trigger input is low. " +
             "Note that this pin is low by default. Therefore, if it is not driven and " +
             "this option is set to true, the LED will not turn on.")]
         public bool LedRespectsTrigger { get; set; } = false;
 
-        // State
-        readonly IObservable<UclaMiniscopeV4Frame> source;
-        readonly object captureLock = new object();
-        AbusedUvcRegisters originalState;
 
-
-        // NB: Camera register (ab)uses
-        // CaptureProperty.Saturation   -> Quaternion W and start acquisition
-        // CaptureProperty.Hue          -> Quaternion X
-        // CaptureProperty.Gain         -> Quaternion Y
-        // CaptureProperty.Brightness   -> Quaternion Z
-        // CaptureProperty.Gamma        -> Inverted state of Trigger Input (3.3 -> Gamma = 0, 0V -> Gamma != 0)
-        // CaptureProperty.Contrast     -> DAQ Frame number
-
-        static internal AbusedUvcRegisters IssueStartCommands(OpenCV.Net.Capture capture)
+        static internal void IssueStartCommands(IMiniscopeDaqControls controls)
         {
-            
             // 8-bit            7-bit           Description
             // ---------------------------------------------
             // 192 (0xc0)       96 (0x60)       Deserializer
@@ -82,186 +106,238 @@ namespace OpenEphys.Miniscope
             // 238 (0xee)       119 (0x77)      MAX14574 EWL driver
             // 32 (0x20)        16 (0x10)       ATTINY MCU
 
-            var cgs = Helpers.ReadConfigurationRegisters(capture);
+            controls.I2C.QueueCommand(192, 31, 16); // I2C: 0x60
+            controls.I2C.QueueCommand(176, 5, 32); // I2C:0x58
+            controls.I2C.QueueCommand(192, 34, 2);
+            controls.I2C.QueueCommand(192, 32, 10);
+            controls.I2C.QueueCommand(192, 7, 176);
+            controls.I2C.QueueCommand(176, 15, 2);
+            controls.I2C.QueueCommand(176, 30, 10);
+            controls.I2C.QueueCommand(192, 8, 32, 238, 160, 80);
+            controls.I2C.QueueCommand(192, 16, 32, 238, 88, 80);
+            controls.I2C.QueueCommand(80, 65, 6, 7); // BNO Axis mapping and sign
+            controls.I2C.QueueCommand(80, 61, 12); // BNO operation mode is NDOF
+            controls.I2C.QueueCommand(254, 0); // 0x7F
+            controls.I2C.QueueCommand(238, 3, 3); // 0x77
+            controls.I2C.CommitCommands();
 
-            // Magik configuration sequence (configures SERDES and chip default states)
-            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 31, 16)); // I2C: 0x60
-            Helpers.SendConfig(capture, Helpers.CreateCommand(176, 5, 32)); // I2C:0x58
-            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 34, 2));
-            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 32, 10));
-            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 7, 176));
-            Helpers.SendConfig(capture, Helpers.CreateCommand(176, 15, 2));
-            Helpers.SendConfig(capture, Helpers.CreateCommand(176, 30, 10));
-            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 8, 32, 238, 160, 80));
-            Helpers.SendConfig(capture, Helpers.CreateCommand(192, 16, 32, 238, 88, 80));
-            Helpers.SendConfig(capture, Helpers.CreateCommand(80, 65, 6, 7)); // BNO Axis mapping and sign
-            Helpers.SendConfig(capture, Helpers.CreateCommand(80, 61, 12)); // BNO operation mode is NDOF
-            Helpers.SendConfig(capture, Helpers.CreateCommand(254, 0)); // 0x7F
-            Helpers.SendConfig(capture, Helpers.CreateCommand(238, 3, 3)); // 0x77
-
-            // Set frame size
-            capture.SetProperty(CaptureProperty.FrameWidth, Width);
-            capture.SetProperty(CaptureProperty.FrameHeight, Height);
-
-            // Start the camera
-            capture.SetProperty(CaptureProperty.Saturation, 1);
-
-            return cgs;
+            controls.EnableFrameTTLs(true);
         }
 
-        static internal void IssueStopCommands(OpenCV.Net.Capture capture, AbusedUvcRegisters originalState)
+        static internal void IssueStopCommands(IMiniscopeDaqControls controls)
         {
-            Helpers.SendConfig(capture, Helpers.CreateCommand(32, 1, 255));
-            Helpers.SendConfig(capture, Helpers.CreateCommand(88, 0, 114, 255));
-            Helpers.WriteConfigurationRegisters(capture, originalState);
+            controls.EnableFrameTTLs(false);
+            controls.I2C.QueueCommand(32, 1, 255);
+            controls.I2C.QueueCommand(88, 0, 114, 255);
+            controls.I2C.CommitCommands();
         }
 
-        public UclaMiniscopeV4()
+
+        readonly ArrayPool<byte> framePool = ArrayPool<byte>.Create(maxArrayLength: 1000 * 1000 * 2, maxArraysPerBucket: 60);
+
+        private static unsafe UclaMiniscopeV4Frame CreateFrameFromRaw(MiniscopeV4RawFrame frame, MiniscopeV4MediaCapture capture)
         {
-            source = Observable.Create<UclaMiniscopeV4Frame>((observer, cancellationToken) =>
+            fixed (byte* ptr = frame.DataArray)
             {
-                return Task.Factory.StartNew(() =>
+                IntPtr dataPtr = new(ptr);
+                ExtractMetadata(dataPtr, out var frameInfo, out var quat);
+                using (var image = new IplImage(new Size(frame.PixelWidth, frame.PixelHeight), IplDepth.U8, 2, dataPtr))
                 {
-                    lock (captureLock)
-                    {
-                        bool initialized = false;
-                        var lastLedBrightness = LedBrightness;
-                        var lastEWL = Focus;
-                        var lastFps = FramesPerSecond;
-                        var lastSensorGain = SensorGain;
-                        var lastQuaternion = Quaternion.Identity;
-                        var outputQuaternion = Quaternion.Identity;
-                        ulong quaterionUpdateCounter = 0;
-                        // var lastInterleaveLed = InterleaveLed;
-                        
+                    var rgbImage = new IplImage(image.Size, IplDepth.U8, 3);
+                    CV.CvtColor(image, rgbImage, ColorConversion.Yuv2BgrYuy2);
+                    bool trigger = (frameInfo.State & 0x01) != 0;
+                    bool aux = (frameInfo.State & 0x02) != 0;
+                    return new UclaMiniscopeV4Frame(rgbImage, quat, (int)frameInfo.FrameCount,trigger, aux);
+                }
+            }
+        }
 
-                        using (var capture = Capture.CreateCameraCapture(Index))
+        /// <summary>
+        /// Returns the data sequence produced by the connected Miniscope V4.
+        /// </summary>
+        /// <returns>A sequence of <see cref="UclaMiniscopeV4Frame"/> values.</returns>
+        public override IObservable<UclaMiniscopeV4Frame> Generate()
+        {
+            return Observable.Create<UclaMiniscopeV4Frame>(async (observer, cancellationToken) =>
+            {
+                var channelOptions = new BoundedChannelOptions(120)
+                {
+                    AllowSynchronousContinuations = false,
+                    FullMode = BoundedChannelFullMode.DropOldest,
+                    SingleReader = true,
+                    SingleWriter = true
+                };
+                var frameChannel = Channel.CreateBounded<MiniscopeV4RawFrame>(channelOptions, (frame) => framePool.Return(frame.DataArray));
+                using (var capture = await MiniscopeV4MediaCapture.Create(Index, frameChannel, framePool))
+                {
+                    FirmwareVersion = capture.FwVersion;
+                    var subscriptionList = new CompositeDisposable();
+                    try
+                    {
+                        // Create frame collection task embedded into an observable
+                        var frameObservable = Observable.Create<UclaMiniscopeV4Frame>(async (frameObserver, frameCancellationToken) =>
                         {
                             try
                             {
-                                originalState = IssueStartCommands(capture);
-
-                                while (!cancellationToken.IsCancellationRequested)
+                                await foreach (MiniscopeV4RawFrame frame in frameChannel.Reader.ReadAllAsync(frameCancellationToken))
                                 {
-                                    // Get trigger input state
-                                    var gate = capture.GetProperty(CaptureProperty.Gamma) != 0;
-
-                                    if (LedRespectsTrigger)
+                                    // NB : This try block ensures that the frames read by the frameChannel are all
+                                    // returned to the pool if something goes wrong in CreateFrameFromRaw
+                                    // actual exceptions are thrown to the outer try..catch
+                                    try
                                     {
-                                        if (!gate && lastLedBrightness != 0)
-                                        {
-                                            Helpers.SendConfig(capture, Helpers.CreateCommand(32, 1, 255));
-                                            Helpers.SendConfig(capture, Helpers.CreateCommand(88, 0, 114, 255));
-                                            lastLedBrightness = 0;
-                                        }
-                                        else if (gate && LedBrightness != lastLedBrightness || !initialized)
-                                        {
-                                            var scaled = 2.55 * LedBrightness;
-                                            Helpers.SendConfig(capture, Helpers.CreateCommand(32, 1, (byte)(255 - scaled)));
-                                            Helpers.SendConfig(capture, Helpers.CreateCommand(88, 0, 114, (byte)(255 - scaled)));
-                                            lastLedBrightness = LedBrightness;
-                                        }
+                                        frameObserver.OnNext(CreateFrameFromRaw(frame, capture));
                                     }
-                                    else
+                                    finally
                                     {
-                                        if (LedBrightness != lastLedBrightness || !initialized)
-                                        {
-                                            var scaled = 2.55 * LedBrightness;
-                                            Helpers.SendConfig(capture, Helpers.CreateCommand(32, 1, (byte)(255 - scaled)));
-                                            Helpers.SendConfig(capture, Helpers.CreateCommand(88, 0, 114, (byte)(255 - scaled)));
-                                            lastLedBrightness = LedBrightness;
-                                        }
-                                    }
-
-                                    if (Focus != lastEWL || !initialized)
-                                    {
-                                        var scaled = Focus * 1.27;
-                                        Helpers.SendConfig(capture, Helpers.CreateCommand(238, 8, (byte)(127 + scaled), 2));
-                                        lastEWL = Focus;
-                                    }
-
-                                    if (FramesPerSecond != lastFps || !initialized)
-                                    {
-                                        byte v0 = (byte)((int)FramesPerSecond & 0x00000FF);
-                                        byte v1 = (byte)(((int)FramesPerSecond & 0x000FF00) >> 8);
-                                        Helpers.SendConfig(capture, Helpers.CreateCommand(32, 5, 0, 201, v0, v1));
-                                        lastFps = FramesPerSecond;
-                                    }
-
-                                    if (SensorGain != lastSensorGain || !initialized)
-                                    {
-                                        Helpers.SendConfig(capture, Helpers.CreateCommand(32, 5, 0, 204, 0, (byte)SensorGain));
-                                        lastSensorGain = SensorGain;
-                                    }
-
-                                    //if (InterleaveLed != lastInterleaveLed || !initialized)
-                                    //{
-                                    //    Helpers.SendConfig(capture, Helpers.CreateCommand(32, 4, (byte)(InterleaveLed ? 0x00 : 0x03)));
-                                    //    lastInterleaveLed = InterleaveLed;
-                                    //}
-
-                                    initialized = true;
-
-                                    // Capture frame
-                                    var image = capture.QueryFrame();
-
-                                    // Get latest hardware frame count
-                                    var frameNumber = (int)capture.GetProperty(CaptureProperty.Contrast);
-
-                                    // Get BNO data
-                                    var index = quaterionUpdateCounter++ % 4;
-
-                                    var q = new Quaternion
-                                    {
-                                        W = (!LimitOrientationUpdates || index == 0) ? QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Saturation) : lastQuaternion.W,
-                                        X = (!LimitOrientationUpdates || index == 1) ? QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Hue) : lastQuaternion.X,
-                                        Y = (!LimitOrientationUpdates || index == 2) ? QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Gain) : lastQuaternion.Y,
-                                        Z = (!LimitOrientationUpdates || index == 3) ? QuatConvFactor * (short)capture.GetProperty(CaptureProperty.Brightness) : lastQuaternion.Z
-                                    };
-
-                                    lastQuaternion = q;
-                                    if (!LimitOrientationUpdates || index == 3)
-                                        outputQuaternion = q;
-
-                                    if (image == null)
-                                    {
-                                        observer.OnCompleted();
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        observer.OnNext(new UclaMiniscopeV4Frame(image.Clone(), outputQuaternion, frameNumber, gate));
+                                        framePool.Return(frame.DataArray);
                                     }
                                 }
                             }
+                            catch (OperationCanceledException)
+                            {
+                                frameObserver.OnCompleted();
+                            }
+                            catch (Exception ex)
+                            {
+                                frameObserver.OnError(ex);
+                            }
                             finally
                             {
-                                IssueStopCommands(capture, originalState);
-                                capture.Close();
+                                while (frameChannel.Reader.TryRead(out MiniscopeV4RawFrame pendingFrame))
+                                {
+                                    if (pendingFrame.DataArray != null)
+                                    {
+                                        framePool.Return(pendingFrame.DataArray);
+                                    }
+                                }
                             }
+                        }).Publish().RefCount();
 
-                        }
+                        // Configure device
+                        IssueStartCommands(capture.DaqControls);
+
+                        // Prepare hardware controls and connection
+
+                        // NB: This line allows to throttle the uvc control signals, so even if two buffered frames arrived
+                        // to quickly, we limit in time (right now to ~2 frames time). This affects manual controls, so
+                        // having this limit is not noticeable
+                        // We also send a dummy frame to the controls, to set the settings such as FPS before we receive the first frame
+                        var throttledFrame = Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, false, false))
+                        .Concat(frameObservable).Sample(new TimeSpan(0, 0, 0, 0, 67)).Publish().RefCount();
+                        
+                        // Brightness
+                        subscriptionList.Add(throttledFrame
+                            .Select(c => new { Gate = c.Trigger, RespectsTrigger = LedRespectsTrigger, Brightness = LedBrightness })
+                            .DistinctUntilChanged().Select(val =>
+                            {
+                                if (val.RespectsTrigger && !val.Gate) return (byte)255;
+                                return (byte)(255 - 2.55 * val.Brightness);
+                            }).DistinctUntilChanged().Subscribe(val =>
+                            {
+                                capture.DaqControls.I2C.QueueCommand(32, 1, val);
+                                capture.DaqControls.I2C.QueueCommand(88, 0, 114, val);
+                            }));
+
+                        // SensorGain
+                        subscriptionList.Add(
+                            throttledFrame.Select(_ => SensorGain).DistinctUntilChanged().Subscribe(val =>
+                            {
+                                capture.DaqControls.I2C.QueueCommand(32, 5, 0, 204, 0, (byte)val);
+                            }));
+
+                        // Focus
+                        subscriptionList.Add(throttledFrame
+                            .Select(_ => Focus).DistinctUntilChanged().Subscribe(val =>
+                            {
+                                var scaled = val * 1.27;
+                                capture.DaqControls.I2C.QueueCommand(238, 8, (byte)(127 + scaled), 2);
+                            }));
+
+                        // FPS
+                        subscriptionList.Add(throttledFrame
+                            .Select(_ => FramesPerSecond).DistinctUntilChanged().Subscribe(val =>
+                            {
+                                byte v0 = (byte)((int)val & 0x00000FF);
+                                byte v1 = (byte)(((int)val & 0x000FF00) >> 8);
+                                capture.DaqControls.I2C.QueueCommand(32, 5, 0, 201, v0, v1);
+                            }));
+
+                        subscriptionList.Add(throttledFrame.Subscribe(_ => capture.DaqControls.I2C.CommitCommands()));
+                        subscriptionList.Add(frameObservable.Subscribe(observer));
+
+
+                        // Start acquisition
+                        await capture.Start(Width, Height, cancellationToken);
+                        await Task.Delay(-1, cancellationToken);
+
                     }
-                },
-                    cancellationToken,
-                    TaskCreationOptions.LongRunning,
-                    TaskScheduler.Default);
-            })
-            .PublishReconnectable()
-            .RefCount();
+                    catch (OperationCanceledException) { }
+                    finally
+                    {
+                        subscriptionList.Dispose();
+                        IssueStopCommands(capture.DaqControls);
+                    }
+                }
+            }).PublishReconnectable().RefCount();
         }
 
-        public override IObservable<UclaMiniscopeV4Frame> Generate()
+        struct FrameInfo
         {
-            return source;
+            public uint FrameCount;
+            public uint FrameTime;
+            public uint State;
+        }
+        private static uint ExtractWord(ulong v)
+        {
+            return (uint)(((v >> 8) & 0x000000FF) |
+                          ((v >> 16) & 0x0000FF00) |
+                          ((v >> 24) & 0x00FF0000) |
+                          ((v >> 32) & 0xFF000000));
+        }
+        static unsafe void ExtractMetadata(IntPtr buffer, out FrameInfo info, out Quaternion quat)
+        {
+            ulong* src = (ulong*)buffer;
+
+            uint w0 = ExtractWord(src[0]); // FrameCount
+            uint w1 = ExtractWord(src[1]); // FrameTime
+            uint w2 = ExtractWord(src[2]); // State
+            uint w3 = ExtractWord(src[3]); // Quaternion: W, X
+            uint w4 = ExtractWord(src[4]); // Quaternion: Y, Z
+
+            info = new FrameInfo
+            {
+                FrameCount = w0,
+                FrameTime = w1,
+                State = w2
+            };
+
+
+            short rawW = (short)(w3 & 0xFFFF);
+            short rawX = (short)(w3 >> 16);
+            short rawY = (short)(w4 & 0xFFFF);
+            short rawZ = (short)(w4 >> 16);
+
+            float qX = rawX * QuatConvFactor;
+            float qY = rawY * QuatConvFactor;
+            float qZ = rawZ * QuatConvFactor;
+            float qW = rawW * QuatConvFactor;
+
+            quat = new Quaternion(qX, qY, qZ, qW);
         }
     }
 
-    // NB: Needs a unique name, even though its a class member, for de/serialization without issues
+
+    /// <summary>
+    /// Specifies the image sensor gain options for the UCLA Miniscope V4.
+    /// </summary>
     public enum GainV4
     {
+        /// <summary>Low sensor gain.</summary>
         Low = 225,
+        /// <summary>Medium sensor gain.</summary>
         Medium = 228,
+        /// <summary>High sensor gain.</summary>
         High = 36,
     }
 
@@ -283,16 +359,48 @@ namespace OpenEphys.Miniscope
         }
     }
 
-    // NB: Needs a unique name, even though its a class member, for de/serialization without issues
+    /// <summary>
+    /// Specifies the available frame rate options for the UCLA Miniscope V4.
+    /// </summary>
     public enum FrameRateV4
     {
+        /// <summary>10 frames per second.</summary>
         Fps10 = 39 & 0x000000FF | 16 << 8,
+        /// <summary>15 frames per second.</summary>
         Fps15 = 26 & 0x000000FF | 11 << 8,
+        /// <summary>20 frames per second.</summary>
         Fps20 = 19 & 0x000000FF | 136 << 8,
+        /// <summary>25 frames per second.</summary>
         Fps25 = 15 & 0x000000FF | 160 << 8,
+        /// <summary>30 frames per second.</summary>
         Fps30 = 12 & 0x000000FF | 228 << 8,
     };
 
+    /// <summary>
+    /// Holds the raw byte buffer and metadata for a single frame received from the Miniscope V4 DAQ.
+    /// </summary>
+    public struct MiniscopeV4RawFrame
+    {
+        /// <summary>
+        /// Gets or sets the byte array containing the raw frame pixel data.
+        /// </summary>
+        public byte[] DataArray;
+
+        /// <summary>
+        /// Gets or sets the number of valid bytes in <see cref="DataArray"/>.
+        /// </summary>
+        public uint DataLength;
+
+        /// <summary>
+        /// Gets or sets the pixel width of the frame.
+        /// </summary>
+        public int PixelWidth;
+
+        /// <summary>
+        /// Gets or sets the pixel height of the frame.
+        /// </summary>
+        public int PixelHeight;
+    }
 
     class FrameRateV4TypeConverter : EnumConverter
     {
@@ -301,6 +409,17 @@ namespace OpenEphys.Miniscope
         {
         }
 
+         static string ToDisplayString(FrameRateV4 fps) => fps switch
+         {
+                FrameRateV4.Fps10 => "10 Hz",
+                FrameRateV4.Fps15 => "15 Hz",
+                FrameRateV4.Fps20 => "20 Hz",
+                FrameRateV4.Fps25 => "25 Hz",
+                FrameRateV4.Fps30 => "30 Hz",
+                _ => fps.ToString()
+         };
+
+        /// <inheritdoc/>
         public override StandardValuesCollection GetStandardValues(ITypeDescriptorContext context)
         {
             return new StandardValuesCollection(new[]
@@ -312,5 +431,17 @@ namespace OpenEphys.Miniscope
                 FrameRateV4.Fps30,
             });
         }
-    }
+
+
+        /// <inheritdoc/>
+        public override bool CanConvertFrom(ITypeDescriptorContext ctx, Type t) => t == typeof(string);
+
+        /// <inheritdoc/>
+        public override object ConvertFrom(ITypeDescriptorContext ctx, CultureInfo culture, object value)
+            => Enum.GetValues(typeof(FrameRateV4)).Cast<FrameRateV4>().First(r => ToDisplayString(r) == (string)value);
+
+        /// <inheritdoc/>
+        public override object ConvertTo(ITypeDescriptorContext ctx, CultureInfo culture, object value, Type destType)
+            => ToDisplayString((FrameRateV4)value);
+}
 }

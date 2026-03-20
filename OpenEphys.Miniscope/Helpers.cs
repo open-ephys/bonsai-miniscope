@@ -6,8 +6,17 @@ using System.Runtime.CompilerServices;
 
 namespace OpenEphys.Miniscope
 {
+    /// <summary>
+    /// Provides shared utility methods for reading and writing Miniscope device configuration
+    /// over UVC capture properties.
+    /// </summary>
     public class Helpers
     {
+        /// <summary>
+        /// Reads the current values of the UVC registers repurposed for Miniscope configuration.
+        /// </summary>
+        /// <param name="capture">The OpenCV capture device to read from.</param>
+        /// <returns>A snapshot of the current register values.</returns>
         static internal AbusedUvcRegisters ReadConfigurationRegisters(Capture capture)
         {
             return new AbusedUvcRegisters(
@@ -17,6 +26,11 @@ namespace OpenEphys.Miniscope
                 capture.GetProperty(CaptureProperty.Saturation));
         }
 
+        /// <summary>
+        /// Restores previously saved UVC register values to the capture device.
+        /// </summary>
+        /// <param name="capture">The OpenCV capture device to write to.</param>
+        /// <param name="original">The register values to restore.</param>
         static internal void WriteConfigurationRegisters(Capture capture, AbusedUvcRegisters original)
         {
             capture.SetProperty(CaptureProperty.Contrast, original.Contrast);
@@ -29,6 +43,12 @@ namespace OpenEphys.Miniscope
 
         // They are using a simple protocol for universal device configuration
         // Settings are sent using 64 bit words over 3 fixed configuration registers
+        /// <summary>
+        /// Sends a 64-bit configuration command to the Miniscope firmware by packing it
+        /// across three UVC capture property registers.
+        /// </summary>
+        /// <param name="capture">The OpenCV capture device to write to.</param>
+        /// <param name="command">The 64-bit command word to transmit.</param>
         static internal void SendConfig(Capture capture, ulong command)
         {
             capture.SetProperty(CaptureProperty.Contrast, command & 0x00000000FFFF);

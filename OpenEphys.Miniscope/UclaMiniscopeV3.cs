@@ -8,22 +8,35 @@ using OpenCV.Net;
 
 namespace OpenEphys.Miniscope
 {
-    [Description("Produces a image sequence acquired from a UCLA Miniscope V3.")]
+    /// <summary>
+    /// Produces an video sequence acquired from a UCLA Miniscope V3.
+    /// </summary>
+    [Description("Produces a video sequence acquired from a UCLA Miniscope V3.")]
     public class UclaMiniscopeV3 : Source<IplImage>
     {
-        // NB: Needs a unique name, even though its a class member, for de/serialization without issues
+        /// <summary>
+        /// Specifies the image sensor gain options for the UCLA Miniscope V3.
+        /// </summary>
         public enum GainV3
         {
+            /// <summary>Low sensor gain.</summary>
             Low = 225,
+            /// <summary>Medium sensor gain.</summary>
             Medium = 228,
+            /// <summary>High sensor gain.</summary>
             High = 36
         };
 
-        // NB: Needs a unique name, even though its a class member, for de/serialization without issues
+        /// <summary>
+        /// Specifies the available frame rate options for the UCLA Miniscope V3.
+        /// </summary>
         public enum FrameRateV3
         {
+            /// <summary>10 frames per second.</summary>
             Fps10,
+            /// <summary>30 frames per second.</summary>
             Fps30,
+            /// <summary>60 frames per second.</summary>
             Fps60
         };
 
@@ -31,24 +44,36 @@ namespace OpenEphys.Miniscope
         const int Width = 752;
         const int Height = 480;
 
+        /// <summary>
+        /// Gets or sets the index of the camera from which to acquire images.
+        /// </summary>
         [Editor("OpenEphys.Miniscope.Design.UclaMiniscopeV3IndexEditor, OpenEphys.Miniscope.Design", typeof(UITypeEditor))]
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 
+        /// <summary>
+        /// Gets or sets the excitation LED brightness as a percent of maximum.
+        /// </summary>
         [Range(0, 100)]
         [Editor(DesignTypes.SliderEditor, typeof(UITypeEditor))]
         [Description("Excitation LED brightness (percent of max).")]
         public double LedBrightness { get; set; } = 0;
 
+        /// <summary>
+        /// Gets or sets the image sensor gain.
+        /// </summary>
         [Description("The image sensor gain.")]
         public GainV3 SensorGain { get; set; } = GainV3.Low;
 
+        /// <summary>
+        /// Gets or sets the frame rate in Hz.
+        /// </summary>
         [Description("Frames captured per second.")]
         public FrameRateV3 FramesPerSecond { get; set; } = FrameRateV3.Fps30;
 
         // State
         readonly IObservable<IplImage> source;
-        readonly object captureLock = new object();
+        readonly object captureLock = new();
         AbusedUvcRegisters originalState;
 
         static internal AbusedUvcRegisters IssueStartCommands(OpenCV.Net.Capture capture)
@@ -95,6 +120,9 @@ namespace OpenEphys.Miniscope
             Helpers.WriteConfigurationRegisters(capture, originalState);
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="UclaMiniscopeV3"/> class.
+        /// </summary>
         public UclaMiniscopeV3()
         {
             source = Observable.Create<IplImage>((observer, cancellationToken) =>
@@ -192,6 +220,10 @@ namespace OpenEphys.Miniscope
             .RefCount();
         }
 
+        /// <summary>
+        /// Returns the image sequence produced by the connected Miniscope V3.
+        /// </summary>
+        /// <returns>A sequence of <see cref="IplImage"/> frames.</returns>
         public override IObservable<IplImage> Generate()
         {
             return source;

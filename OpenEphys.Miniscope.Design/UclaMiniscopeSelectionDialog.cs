@@ -2,17 +2,26 @@
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Bonsai.Reactive;
 using OpenCV.Net;
 
 namespace OpenEphys.Miniscope.Design
 {
+    /// <summary>
+    /// Specifies the kind of UCLA Miniscope device to scan for.
+    /// </summary>
     public enum ScopeKind
     {
+        /// <summary>UCLA Miniscope V3.</summary>
         V3,
+        /// <summary>UCLA Miniscope V4.</summary>
         V4,
+        /// <summary>UCLA MiniCAM behavioral monitoring camera.</summary>
         MiniCam
     }
+
+    /// <summary>
+    /// A dialog that scans for connected UCLA Miniscope devices and allows the user to select one by index.
+    /// </summary>
     public partial class UclaMiniscopeSelectionDialog : Form
     {
         bool scanning = false;
@@ -20,6 +29,10 @@ namespace OpenEphys.Miniscope.Design
         Task cancellableTask;
         readonly ScopeKind scopeKind;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="UclaMiniscopeSelectionDialog"/> class.
+        /// </summary>
+        /// <param name="kind">The kind of Miniscope device to scan for.</param>
         public UclaMiniscopeSelectionDialog(ScopeKind kind)
         {
             InitializeComponent();
@@ -41,7 +54,6 @@ namespace OpenEphys.Miniscope.Design
                     var originalState = scopeKind switch
                     {
                         ScopeKind.V3 => UclaMiniscopeV3.IssueStartCommands(capture),
-                        ScopeKind.V4 => UclaMiniscopeV4.IssueStartCommands(capture),
                         ScopeKind.MiniCam => UclaMiniCam.IssueStartCommands(capture),
                         _ => throw new NotImplementedException(),
                     };
@@ -63,18 +75,16 @@ namespace OpenEphys.Miniscope.Design
                         }
                     }
 
-                    switch(scopeKind)
+                    switch (scopeKind)
                     {
                         case ScopeKind.V3:
                             UclaMiniscopeV3.IssueStopCommands(capture, originalState);
                             break;
-                        case ScopeKind.V4:
-                            UclaMiniscopeV4.IssueStopCommands(capture, originalState);
-                            break;
                         case ScopeKind.MiniCam:
                             UclaMiniCam.IssueStopCommands(capture, originalState);
                             break;
-                    };
+                    }
+                    ;
 
                     capture.Close();
                 }
@@ -126,7 +136,7 @@ namespace OpenEphys.Miniscope.Design
                 listBox_Indices.Items.Clear();
                 scanning = true;
 
-                if (tokenSource.IsCancellationRequested) 
+                if (tokenSource.IsCancellationRequested)
                 {
                     tokenSource.Dispose();
                     tokenSource = new CancellationTokenSource();

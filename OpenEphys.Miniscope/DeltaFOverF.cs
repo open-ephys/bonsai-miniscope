@@ -8,24 +8,54 @@ using System.Collections.Generic;
 
 namespace OpenEphys.Miniscope
 {
-    [Description("Performs a naïve, causal deltaF/F calculation on a series of images. Care should be taken when using deltaF/F for quantitative analysis due to to its dependence on accurate background estimation and the (generally) nonlinear relationship between fluorescence intensity and the underlying independent variable of interest (e.g. Calcium levels). This operator is useful for performing a quick online deltaF/F but is not recommended for quantitative analysis since it is causal performs very simple background estimation.")]
+
+    /// <summary>
+    /// Performs a naïve, causal ΔF/F (delta-F over F) calculation on a sequence of images.
+    /// </summary>
+    /// <remarks>
+    ///  Care should be taken when using deltaF/F for quantitative analysis due to to its dependence on
+    ///  accurate background estimation and the (generally) nonlinear relationship between fluorescence
+    ///  intensity and the underlying independent variable of interest (e.g. Calcium levels). This operator is
+    ///  useful for performing a quick online deltaF/F but is not recommended for quantitative analysis since
+    ///  it is causal performs very simple background estimation.
+    /// </remarks>
+    [Description("Performs a naïve, causal ΔF/F calculation on a series of images.")]
     public class DeltaFOverF : Transform<IplImage, IplImage>
     {
+        /// <summary>
+        /// Gets or sets the number of previous frames to average to determine the background fluorescence
+        /// </summary>
         [Range(2, 1000)]
         [Editor(DesignTypes.NumericUpDownEditor, DesignTypes.UITypeEditor)]
         [Description("The number of previous frames to average to determine the background fluorescence.")]
         public int BackgroundFrames { get; set; } = 100;
 
+        /// <summary>
+        /// Gets or sets the minimum background intensity level required to calculate ΔF/F
+        /// </summary>
+        /// <remarks>
+        /// This prevents division by a small number which results in pixels that dominate the image.
+        /// </remarks>
         [Range(0, 255)]
         [Precision(1, 0.1)]
         [Editor(DesignTypes.SliderEditor, DesignTypes.UITypeEditor)]
-        [Description("The minimum background intensity level required to calculate dFF. This prevents division by a small number which results in pixels that dominate the image.")]
+        [Description("The minimum background intensity level required to calculate ΔF/F. This prevents division by a small number which results in pixels that dominate the image.")]
         public double BackgroundThreshold { get; set; } = 20;
 
+        /// <summary>
+        /// Gets or set the standard deviation, in pixels, of a Gaussian function that approximates the
+        /// spatial extent of a typical region of interest (e.g. a cell body). If set to 0, no smoothing is
+        /// performed.
+        /// </summary>
         [Editor(DesignTypes.NumericUpDownEditor, DesignTypes.UITypeEditor)]
         [Description("The standard deviation, in pixels, of a Gaussian function that approximates the spatial extent of a typical region of interest (e.g. a cell body). If set to 0, no smoothing is performed.")]
         public int Sigma { get; set; } = 2;
 
+        /// <summary>
+        /// Returns an observable sequence of ΔF/F images computed from the input image sequence.
+        /// </summary>
+        /// <param name="source">The sequence of input images.</param>
+        /// <returns>A sequence of ΔF/F images.</returns>
         public override IObservable<IplImage> Process(IObservable<IplImage> source)
         {
             return Observable.Defer(() =>

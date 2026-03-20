@@ -8,15 +8,24 @@ using OpenCV.Net;
 
 namespace OpenEphys.Miniscope
 {
+    /// <summary>
+    /// Produces a data sequence from a UCLA MiniCAM behavioral monitoring camera.
+    /// </summary>
     [Description("Produces a data sequence from a UCLA MiniCAM behavioral monitoring camera.")]
     public class UclaMiniCam : Source<UclaMiniCamFrame>
     {
-        // NB: Needs a unique name, even though its a class member, for de/serialization without issues
+        /// <summary>
+        /// Specifies the image sensor gain options for the UCLA MiniCAM.
+        /// </summary>
         public enum GainMiniCam
         {
+            /// <summary>Low sensor gain.</summary>
             Low = 8,
+            /// <summary>Medium sensor gain.</summary>
             Medium = 96,
+            /// <summary>High sensor gain.</summary>
             High = 2144,
+            /// <summary>Maximum sensor gain.</summary>
             Maximum = 6240,
         };
 
@@ -29,19 +38,31 @@ namespace OpenEphys.Miniscope
         // causes link instabilities even with a short, high-quality, nominal-gauge SMA cable.
         const double LedBrightnessScaleFactor = 0.26;
 
+        /// <summary>
+        /// Gets or sets the index of the camera from which to acquire images.
+        /// </summary>
         [Editor("OpenEphys.Miniscope.Design.UclaMiniCamIndexEditor, OpenEphys.Miniscope.Design", typeof(UITypeEditor))]
         [Description("The index of the camera from which to acquire images.")]
         public int Index { get; set; } = 0;
 
+        /// <summary>
+        /// Gets or sets the LED brightness as a percent of maximum.
+        /// </summary>
         [Range(0, 100)]
         [Precision(1, 0.1)]
         [Editor(DesignTypes.SliderEditor, typeof(UITypeEditor))]
         [Description("LED brightness (percent of max).")]
         public double LedBrightness { get; set; } = 0;
 
+        /// <summary>
+        /// Gets or sets the image sensor gain.
+        /// </summary>
         [Description("The image sensor gain.")]
         public GainMiniCam SensorGain { get; set; } = GainMiniCam.Low;
 
+        /// <summary>
+        /// Gets or sets the frame rate in Hz.
+        /// </summary>
         [Description("Frames captured per second.")]
         [Range(5, 47)]
         [Editor(DesignTypes.NumericUpDownEditor, typeof(UITypeEditor))]
@@ -49,7 +70,7 @@ namespace OpenEphys.Miniscope
 
         // State
         readonly IObservable<UclaMiniCamFrame> source;
-        readonly object captureLock = new object();
+        readonly object captureLock = new();
         AbusedUvcRegisters originalState;
 
         // NB: Camera register (ab)uses
@@ -104,6 +125,9 @@ namespace OpenEphys.Miniscope
             Helpers.WriteConfigurationRegisters(capture, originalState);
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="UclaMiniCam"/> class.
+        /// </summary>
         public UclaMiniCam()
         {
             source = Observable.Create<UclaMiniCamFrame>((observer, cancellationToken) =>
@@ -191,6 +215,10 @@ namespace OpenEphys.Miniscope
             .RefCount();
         }
 
+        /// <summary>
+        /// Returns the data sequence produced by the connected MiniCAM.
+        /// </summary>
+        /// <returns>A sequence of <see cref="UclaMiniCamFrame"/> values.</returns>
         public override IObservable<UclaMiniCamFrame> Generate()
         {
             return source;

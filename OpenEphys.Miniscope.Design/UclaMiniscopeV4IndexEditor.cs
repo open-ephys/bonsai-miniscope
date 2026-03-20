@@ -6,12 +6,17 @@ using System.Windows.Forms.Design;
 
 namespace OpenEphys.Miniscope.Design
 {
+    /// <summary>
+    /// A value editor that allows users to scan for UVC indices that represent UCLA Miniscope V4 devices.
+    /// </summary>
     public class UclaMiniscopeV4IndexEditor : UITypeEditor
     {
         static Type GetPropertyType(Type type)
         {
             return Nullable.GetUnderlyingType(type) ?? type;
         }
+
+        /// <inheritdoc/>
         public override UITypeEditorEditStyle GetEditStyle(ITypeDescriptorContext context)
         {
             if (context != null && context.PropertyDescriptor != null)
@@ -22,6 +27,7 @@ namespace OpenEphys.Miniscope.Design
             return UITypeEditorEditStyle.None;
         }
 
+        /// <inheritdoc/>
         public override object EditValue(ITypeDescriptorContext context, IServiceProvider provider, object value)
         {
             var editorService = (IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService));
