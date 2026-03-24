@@ -27,6 +27,9 @@ namespace OpenEphys.Miniscope
         const int Width = 608;
         const int Height = 608;
 
+        //how many seconds without frames before closing the stream
+        const int FrameTimeoutSeconds = 2;
+
         // 1 quaternion = 2^14 bits
         const float QuatConvFactor = 1.0f / (1 << 14);
 
@@ -126,10 +129,23 @@ namespace OpenEphys.Miniscope
 
         static internal void IssueStopCommands(IMiniscopeDaqControls controls)
         {
-            controls.EnableFrameTTLs(false);
-            controls.I2C.QueueCommand(32, 1, 255);
-            controls.I2C.QueueCommand(88, 0, 114, 255);
-            controls.I2C.CommitCommands();
+            try
+            {
+                controls.EnableFrameTTLs(false);
+                controls.I2C.QueueCommand(32, 1, 255);
+                controls.I2C.QueueCommand(88, 0, 114, 255);
+                controls.I2C.CommitCommands();
+            }
+            catch (InvalidOperationException)
+            {
+                // NB : Is there is a timeout due to a usb disconnection, the
+                // media capture interface can "work" silently, or fail
+                // in any case, we are doing a cleanup here. If it fails
+                // (usually because there is no device anymore)
+                // we just continue with the cleanup
+            }
+
+
         }
 
 
@@ -215,7 +231,11 @@ namespace OpenEphys.Miniscope
                                     }
                                 }
                             }
-                        }).Publish().RefCount();
+                        }).Timeout(TimeSpan.FromSeconds(FrameTimeoutSeconds))
+                        .Catch((TimeoutException e) => {
+                            return Observable.Throw<UclaMiniscopeV4Frame>(new TimeoutException("Frame timeout"));
+                        })
+                        .Publish();
 
                         // Configure device
                         IssueStartCommands(capture.DaqControls);
@@ -227,7 +247,9 @@ namespace OpenEphys.Miniscope
                         // having this limit is not noticeable
                         // We also send a dummy frame to the controls, to set the settings such as FPS before we receive the first frame
                         var throttledFrame = Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, false, false))
-                        .Concat(frameObservable).Sample(new TimeSpan(0, 0, 0, 0, 67)).Publish().RefCount();
+                        .Concat(frameObservable).Sample(new TimeSpan(0, 0, 0, 0, 67))
+                        .Catch(Observable.Empty<UclaMiniscopeV4Frame>()) // NB : ignore exceptions on the control subscriptions. They will be catched downstream by Bonsai
+                        .Publish().RefCount();
                         
                         // Brightness
                         subscriptionList.Add(throttledFrame
@@ -272,6 +294,10 @@ namespace OpenEphys.Miniscope
 
                         // Start acquisition
                         await capture.Start(Width, Height, cancellationToken);
+
+                        // Now start frame distribution, with the timeout starting here
+                        subscriptionList.Add(frameObservable.Connect());
+
                         await Task.Delay(-1, cancellationToken);
 
                     }
