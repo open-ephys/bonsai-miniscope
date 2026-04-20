@@ -18,6 +18,10 @@ namespace OpenEphys.Miniscope
 {
     internal class MiniscopeV4MediaCapture : IDisposable
     {
+        private const string UvcVid = "04B4";
+        private const string UvcPidUsb3 = "00F9";
+        private const string UvcPidUsb2 = "00F8";
+
         public IMiniscopeDaqControls DaqControls { get; }
         public IUvcProcessingUnit ProcessingUnit { get; }
         public Version FwVersion { get; }
@@ -179,7 +183,12 @@ namespace OpenEphys.Miniscope
         public static async Task<IReadOnlyList<string>> GetConnectedMiniscopes()
         {
             var devices = await DeviceInformation.FindAllAsync(DeviceClass.VideoCapture);
-            return devices.Where(d => d.Name.StartsWith("MINISCOPE")).Select(d => d.Id).ToList();
+            return devices.Where(d => 
+                d.Id.IndexOf($"vid_{UvcVid}",StringComparison.OrdinalIgnoreCase) >= 0 &&
+                ( d.Id.IndexOf($"pid_{UvcPidUsb2}", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                  d.Id.IndexOf($"pid_{UvcPidUsb3}", StringComparison.OrdinalIgnoreCase ) >= 0) &&
+                  d.Name.IndexOf("MINISCOPE", StringComparison.InvariantCultureIgnoreCase) >= 0)
+                .Select(d => d.Id).ToList();
         }
 
         static IReadOnlyList<string> cachedDeviceList = null;
