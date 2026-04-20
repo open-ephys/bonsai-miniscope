@@ -7,11 +7,11 @@ using System.Linq;
 using System.Numerics;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reactive.Concurrency;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 using Bonsai;
-using Bonsai.Reactive;
 using OpenCV.Net;
 
 namespace OpenEphys.Miniscope
@@ -242,17 +242,17 @@ namespace OpenEphys.Miniscope
 
                         // Prepare hardware controls and connection
 
-                        // NB: This line allows to throttle the uvc control signals, so even if two buffered frames arrived
-                        // to quickly, we limit in time (right now to ~2 frames time). This affects manual controls, so
-                        // having this limit is not noticeable
+                        // NB : We decouple control activation from the main event, but still use frame production as
+                        // a throttle of sorts, and to update led brightness depending on frame triger value
+                        // (to take advantage of batch i2c command transmission, all controls need to be updated on the same block)
                         // We also send a dummy frame to the controls, to set the settings such as FPS before we receive the first frame
-                        var throttledFrame = Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, false, false))
-                        .Concat(frameObservable).Sample(new TimeSpan(0, 0, 0, 0, 67))
+                        var controlsObservable = Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, false, false))
+                        .Concat(frameObservable).ObserveOn(TaskPoolScheduler.Default)
                         .Catch(Observable.Empty<UclaMiniscopeV4Frame>()) // NB : ignore exceptions on the control subscriptions. They will be catched downstream by Bonsai
                         .Publish().RefCount();
                         
                         // Brightness
-                        subscriptionList.Add(throttledFrame
+                        subscriptionList.Add(controlsObservable
                             .Select(c => new { Gate = c.Trigger, RespectsTrigger = LedRespectsTrigger, Brightness = LedBrightness })
                             .DistinctUntilChanged().Select(val =>
                             {
@@ -266,13 +266,13 @@ namespace OpenEphys.Miniscope
 
                         // SensorGain
                         subscriptionList.Add(
-                            throttledFrame.Select(_ => SensorGain).DistinctUntilChanged().Subscribe(val =>
+                            controlsObservable.Select(_ => SensorGain).DistinctUntilChanged().Subscribe(val =>
                             {
                                 capture.DaqControls.I2C.QueueCommand(32, 5, 0, 204, 0, (byte)val);
                             }));
 
                         // Focus
-                        subscriptionList.Add(throttledFrame
+                        subscriptionList.Add(controlsObservable
                             .Select(_ => Focus).DistinctUntilChanged().Subscribe(val =>
                             {
                                 var scaled = val * 1.27;
@@ -280,7 +280,7 @@ namespace OpenEphys.Miniscope
                             }));
 
                         // FPS
-                        subscriptionList.Add(throttledFrame
+                        subscriptionList.Add(controlsObservable
                             .Select(_ => FramesPerSecond).DistinctUntilChanged().Subscribe(val =>
                             {
                                 byte v0 = (byte)((int)val & 0x00000FF);
@@ -288,7 +288,7 @@ namespace OpenEphys.Miniscope
                                 capture.DaqControls.I2C.QueueCommand(32, 5, 0, 201, v0, v1);
                             }));
 
-                        subscriptionList.Add(throttledFrame.Subscribe(_ => capture.DaqControls.I2C.CommitCommands()));
+                        subscriptionList.Add(controlsObservable.Subscribe(_ => capture.DaqControls.I2C.CommitCommands()));
                         subscriptionList.Add(frameObservable.Subscribe(observer));
 
 
