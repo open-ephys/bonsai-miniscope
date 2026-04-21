@@ -5,9 +5,9 @@ using System.Drawing.Design;
 using System.Globalization;
 using System.Linq;
 using System.Numerics;
+using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Reactive.Concurrency;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
@@ -80,7 +80,7 @@ namespace OpenEphys.Miniscope
         [XmlIgnore]
         public Version FirmwareVersion { get; private set; } = new Version(0,0,0);
 
-        // TODO: Does not work with DAQ for some reason
+        //// TODO: Does not work with DAQ for some reason
         //[Description("Only turn on excitation LED during camera exposures.")]
         //public bool InterleaveLed { get; set; } = false;
 
@@ -95,7 +95,6 @@ namespace OpenEphys.Miniscope
             "Note that this pin is low by default. Therefore, if it is not driven and " +
             "this option is set to true, the LED will not turn on.")]
         public bool LedRespectsTrigger { get; set; } = false;
-
 
         static internal void IssueStartCommands(IMiniscopeDaqControls controls)
         {
@@ -144,10 +143,7 @@ namespace OpenEphys.Miniscope
                 // (usually because there is no device anymore)
                 // we just continue with the cleanup
             }
-
-
         }
-
 
         readonly ArrayPool<byte> framePool = ArrayPool<byte>.Create(maxArrayLength: 1000 * 1000 * 2, maxArraysPerBucket: 60);
 
@@ -183,7 +179,9 @@ namespace OpenEphys.Miniscope
                     SingleReader = true,
                     SingleWriter = true
                 };
+
                 var frameChannel = Channel.CreateBounded<MiniscopeV4RawFrame>(channelOptions, (frame) => framePool.Return(frame.DataArray));
+
                 using (var capture = await MiniscopeV4MediaCapture.Create(Index, frameChannel, framePool))
                 {
                     FirmwareVersion = capture.FwVersion;
@@ -231,7 +229,8 @@ namespace OpenEphys.Miniscope
                                     }
                                 }
                             }
-                        }).Timeout(TimeSpan.FromSeconds(FrameTimeoutSeconds))
+                        })
+                        .Timeout(TimeSpan.FromSeconds(FrameTimeoutSeconds))
                         .Catch((TimeoutException e) => {
                             return Observable.Throw<UclaMiniscopeV4Frame>(new TimeoutException("Frame timeout"));
                         })
@@ -246,10 +245,13 @@ namespace OpenEphys.Miniscope
                         // a throttle of sorts, and to update led brightness depending on frame triger value
                         // (to take advantage of batch i2c command transmission, all controls need to be updated on the same block)
                         // We also send a dummy frame to the controls, to set the settings such as FPS before we receive the first frame
-                        var controlsObservable = Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, false, false))
-                        .Concat(frameObservable).ObserveOn(TaskPoolScheduler.Default)
-                        .Catch(Observable.Empty<UclaMiniscopeV4Frame>()) // NB : ignore exceptions on the control subscriptions. They will be catched downstream by Bonsai
-                        .Publish().RefCount();
+                        var controlsObservable = 
+                            Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, false, false))
+                            .Concat(frameObservable)
+                            .ObserveOn(TaskPoolScheduler.Default)
+                            .Catch(Observable.Empty<UclaMiniscopeV4Frame>()) // NB : ignore exceptions on the control subscriptions. They will be catched downstream by Bonsai
+                            .Publish()
+                            .RefCount();
                         
                         // Brightness
                         subscriptionList.Add(controlsObservable
@@ -314,7 +316,9 @@ namespace OpenEphys.Miniscope
                         IssueStopCommands(capture.DaqControls);
                     }
                 }
-            }).PublishReconnectable().RefCount();
+            })
+            .PublishReconnectable()
+            .RefCount();
         }
 
         struct FrameInfo
@@ -346,7 +350,6 @@ namespace OpenEphys.Miniscope
                 FrameTime = w1,
                 State = w2
             };
-
 
             short rawW = (short)(w3 & 0xFFFF);
             short rawX = (short)(w3 >> 16);
@@ -467,7 +470,6 @@ namespace OpenEphys.Miniscope
             });
         }
 
-
         /// <inheritdoc/>
         public override bool CanConvertFrom(ITypeDescriptorContext ctx, Type t) => t == typeof(string);
 
@@ -478,5 +480,5 @@ namespace OpenEphys.Miniscope
         /// <inheritdoc/>
         public override object ConvertTo(ITypeDescriptorContext ctx, CultureInfo culture, object value, Type destType)
             => ToDisplayString((FrameRateV4)value);
-}
+    }
 }
