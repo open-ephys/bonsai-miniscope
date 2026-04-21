@@ -204,7 +204,10 @@ namespace OpenEphys.Miniscope
                             }
                             finally
                             {
-                                while (frameChannel.Reader.TryRead(out MiniscopeV4RawFrame pendingFrame))
+                                // NB : Do a non-cancellable asynchronous flush
+                                // This will continue until the channel is marked as completed
+                                // ensuring that no frames can be accidentally added after the flush
+                                await foreach (MiniscopeV4RawFrame pendingFrame in frameChannel.Reader.ReadAllAsync())
                                 {
                                     if (pendingFrame.DataArray != null)
                                     {
@@ -276,6 +279,12 @@ namespace OpenEphys.Miniscope
                     finally
                     {
                         subscriptionList.Dispose();
+
+                        // NB : Close the channel
+                        // This will make the producer stop adding frames to it
+                        // and the consumer can flush them quickly
+                        frameChannel.Writer.TryComplete();
+
                         IssueStopCommands(capture.DaqControls);
                     }
                 }
