@@ -33,7 +33,7 @@ namespace OpenEphys.Miniscope
         // 1 quaternion = 2^14 bits
         const float QuatConvFactor = 1.0f / (1 << 14);
 
-        // how many invlid quaternions do we allow before failing
+        // how many consecutive invalid quaternions do we allow before failing
         const float InvalidQuaternionLimit = 1;
 
         /// <summary>
@@ -213,8 +213,12 @@ namespace OpenEphys.Miniscope
                                                 throw new InvalidOperationException("Invalid quaternion value");
                                             }
                                         }
+                                        else
+                                        {
+                                            invalidQuaternions = 0; // Reset consecutive invalid counter
+                                        }
 
-                                        frameObserver.OnNext(processedFrame);
+                                            frameObserver.OnNext(processedFrame);
                                     }
                                     finally
                                     {
