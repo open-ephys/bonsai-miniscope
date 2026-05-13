@@ -1,8 +1,30 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Numerics;
 using OpenCV.Net;
 
 namespace OpenEphys.Miniscope
 {
+
+    ///<summary>
+    ///Specifies the state of the DAQ digital input pins.
+    ///</summary>
+    [Flags]
+    public enum MiniscopeDaqDigitalIn
+    {
+        /// <summary>
+        /// Specifies that no digital inputs are high.
+        /// </summary>
+        None = 0,
+        /// <summary>
+        /// Specifies that digital input 0 is high.
+        /// </summary>
+        DigitalIn0 = 1,
+        /// <summary>
+        /// Specifies that digital input 1 is high.
+        /// </summary>
+        DigitalIn1 = 2,
+    }
+
     /// <summary>
     /// Represents a single frame captured from a UCLA Miniscope V4, including image data,
     /// head-orientation quaternion, and digital I/O state.
@@ -17,13 +39,12 @@ namespace OpenEphys.Miniscope
         /// <param name="frameNumber">The hardware frame counter value at the time of capture.</param>
         /// <param name="trigger">The state of the trigger input at the time of capture.</param>
         /// <param name="aux">The state of the auxiliary digital input at the time of capture.</param>
-        public UclaMiniscopeV4Frame(IplImage image, Quaternion quaternion, int frameNumber, bool trigger, bool aux)
+        public UclaMiniscopeV4Frame(IplImage image, Quaternion quaternion, int frameNumber, MiniscopeDaqDigitalIn digitalIn)
         {
             FrameNumber = frameNumber;
             Image = image;
             Quaternion = quaternion;
-            Trigger = trigger;
-            Aux = aux;
+            DigitalIn = digitalIn;
         }
 
         /// <summary>
@@ -42,13 +63,8 @@ namespace OpenEphys.Miniscope
         public Quaternion Quaternion { get; }
 
         /// <summary>
-        /// Gets the state of the trigger input at the time of capture.
+        /// Gets the state of the digital inputs at the time of capture.
         /// </summary>
-        public bool Trigger { get; }
-
-        /// <summary>
-        /// Gets the state of the auxiliary digital input at the time of capture.
-        /// </summary>
-        public bool Aux { get; }
+        public MiniscopeDaqDigitalIn DigitalIn { get; }
     }
 }

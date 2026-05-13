@@ -84,17 +84,39 @@ namespace OpenEphys.Miniscope
         //[Description("Only turn on excitation LED during camera exposures.")]
         //public bool InterleaveLed { get; set; } = false;
 
+        
         /// <summary>
-        /// Gets or sets a value indicating whether to turn off the LED when the trigger input is low.
+        /// Gets or sets a value indicating whether to turn off the LED when the selected digital input is low.
         /// </summary>
         /// <remarks>
-        /// Note that this pin is low by default. Therefore, if it is not driven and this option is set to
-        /// <see langword="true"/>, the LED will not turn on.
+        /// Note that these pins are low by default. Therefore, if this option is set to
+        /// an undriven input, the LED will not turn on.
         /// </remarks>
-        [Description("Turn off the LED when the trigger input is low. " +
-            "Note that this pin is low by default. Therefore, if it is not driven and " +
-            "this option is set to true, the LED will not turn on.")]
-        public bool LedRespectsTrigger { get; set; } = false;
+        [Description("Turn off the LED when the selected digital input is low. " +
+            "Note that these pins are low by default. Therefore, if this option is set to" +
+            "an undriven input, the LED will not turn on.")]
+        public MiniscopeDaqDigitalIn LedRespectsDigitalIn { get; set; } = MiniscopeDaqDigitalIn.None;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether to turn off the LED when the digital input 0 is low.
+        /// </summary>
+        /// <remarks>
+        /// [Obsolete]. Cannot tag this property with the Obsolete attribute due to https://github.com/dotnet/runtime/issues/100453
+        /// This exists to provide a path for old workflows to set a value to <see cref="LedRespectsDigitalIn"/>
+        /// </remarks>
+        [Browsable(false)]
+        [Externalizable(false)]
+        public bool LedRespectsTrigger {
+            get { return LedRespectsDigitalIn != MiniscopeDaqDigitalIn.None; }
+            set { LedRespectsDigitalIn = value ? MiniscopeDaqDigitalIn.DigitalIn0 : MiniscopeDaqDigitalIn.None; }
+        }
+
+        /// <summary>
+        /// Prevents the LedRespectsTrigger property from being serialized
+        /// </summary>
+        /// <returns>false</returns>
+        [Obsolete]
+        public bool ShouldSerializeLedRespectsTrigger() { return false; }
 
         static internal void IssueStartCommands(IMiniscopeDaqControls controls)
         {
@@ -157,9 +179,8 @@ namespace OpenEphys.Miniscope
                 {
                     var rgbImage = new IplImage(image.Size, IplDepth.U8, 3);
                     CV.CvtColor(image, rgbImage, ColorConversion.Yuv2BgrYuy2);
-                    bool trigger = (frameInfo.State & 0x01) != 0;
-                    bool aux = (frameInfo.State & 0x02) != 0;
-                    return new UclaMiniscopeV4Frame(rgbImage, quat, (int)frameInfo.FrameCount,trigger, aux);
+                    MiniscopeDaqDigitalIn digitalIn = (MiniscopeDaqDigitalIn)(frameInfo.State & 0x3);
+                    return new UclaMiniscopeV4Frame(rgbImage, quat, (int)frameInfo.FrameCount,digitalIn);
                 }
             }
         }
@@ -246,7 +267,7 @@ namespace OpenEphys.Miniscope
                         // (to take advantage of batch i2c command transmission, all controls need to be updated on the same block)
                         // We also send a dummy frame to the controls, to set the settings such as FPS before we receive the first frame
                         var controlsObservable = 
-                            Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, false, false))
+                            Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, new MiniscopeDaqDigitalIn()))
                             .Concat(frameObservable)
                             .ObserveOn(TaskPoolScheduler.Default)
                             .Catch(Observable.Empty<UclaMiniscopeV4Frame>()) // NB : ignore exceptions on the control subscriptions. They will be catched downstream by Bonsai
@@ -255,10 +276,10 @@ namespace OpenEphys.Miniscope
                         
                         // Brightness
                         subscriptionList.Add(controlsObservable
-                            .Select(c => new { Gate = c.Trigger, RespectsTrigger = LedRespectsTrigger, Brightness = LedBrightness })
+                            .Select(c => new { LedGate = c.DigitalIn.HasFlag(LedRespectsDigitalIn), Brightness = LedBrightness })
                             .DistinctUntilChanged().Select(val =>
                             {
-                                if (val.RespectsTrigger && !val.Gate) return (byte)255;
+                                if (!val.LedGate) return (byte)255;
                                 return (byte)(255 - 2.55 * val.Brightness);
                             }).DistinctUntilChanged().Subscribe(val =>
                             {
