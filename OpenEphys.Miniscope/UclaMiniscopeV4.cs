@@ -72,7 +72,6 @@ namespace OpenEphys.Miniscope
         [Description("Frames captured per second.")]
         public FrameRateV4 FramesPerSecond { get; set; } = FrameRateV4.Fps30;
 
-
         /// <summary>
         /// Gets the firmware version reported by the connected DAQ.
         /// </summary>
@@ -83,8 +82,7 @@ namespace OpenEphys.Miniscope
         //// TODO: Does not work with DAQ for some reason
         //[Description("Only turn on excitation LED during camera exposures.")]
         //public bool InterleaveLed { get; set; } = false;
-
-        
+     
         /// <summary>
         /// Gets or sets a value indicating whether to turn off the LED when the selected digital input is low.
         /// </summary>
@@ -267,7 +265,7 @@ namespace OpenEphys.Miniscope
                         // (to take advantage of batch i2c command transmission, all controls need to be updated on the same block)
                         // We also send a dummy frame to the controls, to set the settings such as FPS before we receive the first frame
                         var controlsObservable = 
-                            Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, new MiniscopeDaqDigitalIn()))
+                            Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, MiniscopeDaqDigitalIn.None))
                             .Concat(frameObservable)
                             .ObserveOn(TaskPoolScheduler.Default)
                             .Catch(Observable.Empty<UclaMiniscopeV4Frame>()) // NB : ignore exceptions on the control subscriptions. They will be catched downstream by Bonsai
@@ -276,10 +274,14 @@ namespace OpenEphys.Miniscope
                         
                         // Brightness
                         subscriptionList.Add(controlsObservable
-                            .Select(c => new { LedGate = c.DigitalIn.HasFlag(LedRespectsDigitalIn), Brightness = LedBrightness })
+                            .Select(c => new { 
+                                LedGate = LedRespectsDigitalIn != MiniscopeDaqDigitalIn.None && 
+                                !c.DigitalIn.HasFlag(LedRespectsDigitalIn), 
+                                Brightness = LedBrightness 
+                            })
                             .DistinctUntilChanged().Select(val =>
                             {
-                                if (!val.LedGate) return (byte)255;
+                                if (val.LedGate) return (byte)255;
                                 return (byte)(255 - 2.55 * val.Brightness);
                             }).DistinctUntilChanged().Subscribe(val =>
                             {

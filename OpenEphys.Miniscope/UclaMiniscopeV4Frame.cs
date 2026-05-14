@@ -4,7 +4,6 @@ using OpenCV.Net;
 
 namespace OpenEphys.Miniscope
 {
-
     ///<summary>
     ///Specifies the state of the DAQ digital input pins.
     ///</summary>
@@ -37,8 +36,7 @@ namespace OpenEphys.Miniscope
         /// <param name="image">The captured image.</param>
         /// <param name="quaternion">The head-orientation quaternion from the onboard IMU.</param>
         /// <param name="frameNumber">The hardware frame counter value at the time of capture.</param>
-        /// <param name="trigger">The state of the trigger input at the time of capture.</param>
-        /// <param name="aux">The state of the auxiliary digital input at the time of capture.</param>
+        /// <param name="digitalIn">The state of the digital inputs at the time of capture.</param>
         public UclaMiniscopeV4Frame(IplImage image, Quaternion quaternion, int frameNumber, MiniscopeDaqDigitalIn digitalIn)
         {
             FrameNumber = frameNumber;
