@@ -33,6 +33,9 @@ namespace OpenEphys.Miniscope
         // 1 quaternion = 2^14 bits
         const float QuatConvFactor = 1.0f / (1 << 14);
 
+        // how many consecutive invalid quaternions do we allow before failing
+        const int InvalidQuaternionLimit = 1;
+
         /// <summary>
         /// Gets or sets the index of the camera from which to acquire images.
         /// </summary>
@@ -147,7 +150,7 @@ namespace OpenEphys.Miniscope
 
         readonly ArrayPool<byte> framePool = ArrayPool<byte>.Create(maxArrayLength: 1000 * 1000 * 2, maxArraysPerBucket: 60);
 
-        private static unsafe UclaMiniscopeV4Frame CreateFrameFromRaw(MiniscopeV4RawFrame frame, MiniscopeV4MediaCapture capture)
+        private static unsafe UclaMiniscopeV4Frame CreateFrameFromRaw(MiniscopeV4RawFrame frame)
         {
             fixed (byte* ptr = frame.DataArray)
             {
@@ -191,6 +194,7 @@ namespace OpenEphys.Miniscope
                         // Create frame collection task embedded into an observable
                         var frameObservable = Observable.Create<UclaMiniscopeV4Frame>(async (frameObserver, frameCancellationToken) =>
                         {
+                            int invalidQuaternions = 0;
                             try
                             {
                                 await foreach (MiniscopeV4RawFrame frame in frameChannel.Reader.ReadAllAsync(frameCancellationToken))
@@ -200,7 +204,21 @@ namespace OpenEphys.Miniscope
                                     // actual exceptions are thrown to the outer try..catch
                                     try
                                     {
-                                        frameObserver.OnNext(CreateFrameFromRaw(frame, capture));
+                                        var processedFrame = CreateFrameFromRaw(frame);
+                                        if (processedFrame.Quaternion.W == 0 && processedFrame.Quaternion.X == 0
+                                        && processedFrame.Quaternion.Y == 0 && processedFrame.Quaternion.Z == 0)
+                                        {
+                                            if (++invalidQuaternions > InvalidQuaternionLimit)
+                                            {
+                                                throw new InvalidOperationException("Invalid quaternion value." +
+                                                    " Ensure reliable electrical continuity between the miniscope and the DAQ");
+                                            }
+                                        }
+                                        else
+                                        {
+                                            invalidQuaternions = 0; // Reset consecutive invalid counter
+                                        }
+                                        frameObserver.OnNext(processedFrame);
                                     }
                                     finally
                                     {
@@ -232,7 +250,7 @@ namespace OpenEphys.Miniscope
                         })
                         .Timeout(TimeSpan.FromSeconds(FrameTimeoutSeconds))
                         .Catch((TimeoutException e) => {
-                            return Observable.Throw<UclaMiniscopeV4Frame>(new TimeoutException("Frame timeout"));
+                            return Observable.Throw<UclaMiniscopeV4Frame>(new TimeoutException("Stopped receiving frames"));
                         })
                         .Publish();
 
@@ -248,8 +266,8 @@ namespace OpenEphys.Miniscope
                         var controlsObservable = 
                             Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, false, false))
                             .Concat(frameObservable)
-                            .ObserveOn(TaskPoolScheduler.Default)
                             .Catch(Observable.Empty<UclaMiniscopeV4Frame>()) // NB : ignore exceptions on the control subscriptions. They will be catched downstream by Bonsai
+                            .ObserveOn(TaskPoolScheduler.Default)
                             .Publish()
                             .RefCount();
                         
