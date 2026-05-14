@@ -210,7 +210,8 @@ namespace OpenEphys.Miniscope
                                         {
                                             if (++invalidQuaternions > InvalidQuaternionLimit)
                                             {
-                                                throw new InvalidOperationException("Invalid quaternion value");
+                                                throw new InvalidOperationException("Invalid quaternion value." +
+                                                    " Ensure reliable electrical continuity between the miniscope and the DAQ");
                                             }
                                         }
                                         else
@@ -249,7 +250,7 @@ namespace OpenEphys.Miniscope
                         })
                         .Timeout(TimeSpan.FromSeconds(FrameTimeoutSeconds))
                         .Catch((TimeoutException e) => {
-                            return Observable.Throw<UclaMiniscopeV4Frame>(new TimeoutException("Frame timeout"));
+                            return Observable.Throw<UclaMiniscopeV4Frame>(new TimeoutException("Stopped receiving frames"));
                         })
                         .Publish();
 
