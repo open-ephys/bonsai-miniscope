@@ -84,15 +84,15 @@ namespace OpenEphys.Miniscope
         //public bool InterleaveLed { get; set; } = false;
      
         /// <summary>
-        /// Gets or sets a value indicating whether to turn off the LED when the selected digital input is low.
+        /// Gets or sets the digital input that gates the excitation LED.
         /// </summary>
         /// <remarks>
-        /// Note that these pins are low by default. Therefore, if this option is set to
-        /// an undriven input, the LED will not turn on.
+        /// The LED turns on only when the selected input is high. These pins are pulled
+        /// low by default; selecting an undriven input will keep the LED off.
+        /// Set to <see cref="MiniscopeDaqDigitalIn.None"/> to keep the lED on.
         /// </remarks>
-        [Description("Turn off the LED when the selected digital input is low. " +
-            "Note that these pins are low by default. Therefore, if this option is set to" +
-            "an undriven input, the LED will not turn on.")]
+        [Description("The digital input that gates the excitation LED. " +
+            "The LED is only on while the selected input is high.")]
         public MiniscopeDaqDigitalIn LedRespectsDigitalIn { get; set; } = MiniscopeDaqDigitalIn.None;
 
         /// <summary>

@@ -4,22 +4,22 @@ using OpenCV.Net;
 
 namespace OpenEphys.Miniscope
 {
-    ///<summary>
-    ///Specifies the state of the DAQ digital input pins.
-    ///</summary>
+    /// <summary>
+    /// Specifies the Miniscope DAQ digital input pins.
+    /// </summary>
     [Flags]
     public enum MiniscopeDaqDigitalIn
     {
         /// <summary>
-        /// Specifies that no digital inputs are high.
+        /// Specifies no digital input pin.
         /// </summary>
         None = 0,
         /// <summary>
-        /// Specifies that digital input 0 is high.
+        /// Specifies digital input 0.
         /// </summary>
         DigitalIn0 = 1,
         /// <summary>
-        /// Specifies that digital input 1 is high.
+        /// Specifies digital input 1.
         /// </summary>
         DigitalIn1 = 2,
     }
@@ -36,7 +36,7 @@ namespace OpenEphys.Miniscope
         /// <param name="image">The captured image.</param>
         /// <param name="quaternion">The head-orientation quaternion from the onboard IMU.</param>
         /// <param name="frameNumber">The hardware frame counter value at the time of capture.</param>
-        /// <param name="digitalIn">The state of the digital inputs at the time of capture.</param>
+        /// <param name="digitalIn">The digital inputs that are high at the time of capture.</param>
         public UclaMiniscopeV4Frame(IplImage image, Quaternion quaternion, int frameNumber, MiniscopeDaqDigitalIn digitalIn)
         {
             FrameNumber = frameNumber;
@@ -61,7 +61,7 @@ namespace OpenEphys.Miniscope
         public Quaternion Quaternion { get; }
 
         /// <summary>
-        /// Gets the state of the digital inputs at the time of capture.
+        /// Gets the digital inputs that are high at the time of capture.
         /// </summary>
         public MiniscopeDaqDigitalIn DigitalIn { get; }
     }
