@@ -276,7 +276,7 @@ namespace OpenEphys.Miniscope
                         subscriptionList.Add(controlsObservable
                             .Select(c => new { 
                                 LedGate = LedRespectsDigitalIn != MiniscopeDaqDigitalIn.None && 
-                                !c.DigitalIn.HasFlag(LedRespectsDigitalIn), 
+                                (c.DigitalIn & LedRespectsDigitalIn) == 0, // if any input is 1, do not gate
                                 Brightness = LedBrightness 
                             })
                             .DistinctUntilChanged().Select(val =>
