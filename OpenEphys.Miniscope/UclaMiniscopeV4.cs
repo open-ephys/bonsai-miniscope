@@ -34,7 +34,7 @@ namespace OpenEphys.Miniscope
         const float QuatConvFactor = 1.0f / (1 << 14);
 
         // how many consecutive invalid quaternions do we allow before failing
-        const float InvalidQuaternionLimit = 1;
+        const int InvalidQuaternionLimit = 1;
 
         /// <summary>
         /// Gets or sets the index of the camera from which to acquire images.
@@ -217,8 +217,7 @@ namespace OpenEphys.Miniscope
                                         {
                                             invalidQuaternions = 0; // Reset consecutive invalid counter
                                         }
-
-                                            frameObserver.OnNext(processedFrame);
+                                        frameObserver.OnNext(processedFrame);
                                     }
                                     finally
                                     {
