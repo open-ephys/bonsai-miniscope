@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Title>OpenEphys.Miniscope.Design.Gui</Title>
+    <Description>Bonsai library that contains a custom GUI for using Miniscopes.</Description>
+    <PackageTags>Bonsai Rx Open Ephys Miniscope Imaging Calcium Gui</PackageTags>
+    <TargetFramework>net472</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Features>strict</Features>
+    <Platforms>AnyCPU</Platforms>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Bonsai.Design" Version="2.9.0" />
+    <PackageReference Include="Bonsai.Design.Visualizers" Version="2.9.0" />
+    <PackageReference Include="Bonsai.ImGui" Version="0.2.0" />
+    <PackageReference Include="Bonsai.ImGui.Design" Version="0.2.0" />
+    <PackageReference Include="Bonsai.ImGui.Visualizers" Version="0.2.0" />
+    <PackageReference Include="Bonsai.ImPlot" Version="0.2.0" />
+    <PackageReference Include="Bonsai.Vision" Version="2.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenEphys.Miniscope\OpenEphys.Miniscope.csproj" />
+    <ProjectReference Include="..\OpenEphys.Miniscope.Design\OpenEphys.Miniscope.Design.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="**\*.bonsai" />
+    <EmbeddedResource Include="GUI\Fonts\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Fonts\Inter.ttf" />
+  </ItemGroup>
+
+</Project>
