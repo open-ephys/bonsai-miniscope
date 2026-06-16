@@ -30,15 +30,10 @@ public class ImGuiMiniscopeExtension : IExtensionContext
         var fontPtr = Marshal.AllocHGlobal(fontBytes.Length);
         Marshal.Copy(fontBytes, 0, fontPtr, fontBytes.Length);
 
-        ImFontConfig imFontConfig = new()
-        {
-            FontDataOwnedByAtlas = 1
-        };
-
         unsafe
         {
             // NB: The ImGui API handles the lifetime of the font data, so we do not need to free the allocated memory after adding the font.
-            io.Fonts.AddFontFromMemoryTTF((byte*)fontPtr, fontBytes.Length, 16f, &imFontConfig);
+            io.Fonts.AddFontFromMemoryTTF((byte*)fontPtr, fontBytes.Length, 16f);
         }
 
         // NB: All colors set here will be overridden by ImGuiMashupVisualizer.Load --> imGuiControl.Render --> ImGui.StyleColors*()
