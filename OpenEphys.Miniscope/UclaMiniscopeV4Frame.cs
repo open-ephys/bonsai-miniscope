@@ -37,12 +37,14 @@ namespace OpenEphys.Miniscope
         /// <param name="quaternion">The head-orientation quaternion from the onboard IMU.</param>
         /// <param name="frameNumber">The hardware frame counter value at the time of capture.</param>
         /// <param name="digitalIn">The digital inputs that are high at the time of capture.</param>
-        public UclaMiniscopeV4Frame(IplImage image, Quaternion quaternion, int frameNumber, MiniscopeDaqDigitalIn digitalIn)
+        /// <param name="frameTime">The time of capture in ms.</param>
+        public UclaMiniscopeV4Frame(IplImage image, Quaternion quaternion, int frameNumber, MiniscopeDaqDigitalIn digitalIn, uint frameTime)
         {
             FrameNumber = frameNumber;
             Image = image;
             Quaternion = quaternion;
             DigitalIn = digitalIn;
+            FrameTime = frameTime;
         }
 
         /// <summary>
@@ -64,5 +66,10 @@ namespace OpenEphys.Miniscope
         /// Gets the digital inputs that are high at the time of capture.
         /// </summary>
         public MiniscopeDaqDigitalIn DigitalIn { get; }
+
+        /// <summary>
+        /// Gets the time the frame was captured.
+        /// </summary>
+        public uint FrameTime { get; }
     }
 }

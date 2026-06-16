@@ -179,7 +179,7 @@ namespace OpenEphys.Miniscope
                     var rgbImage = new IplImage(image.Size, IplDepth.U8, 3);
                     CV.CvtColor(image, rgbImage, ColorConversion.Yuv2BgrYuy2);
                     MiniscopeDaqDigitalIn digitalIn = (MiniscopeDaqDigitalIn)(frameInfo.State & 0x3);
-                    return new UclaMiniscopeV4Frame(rgbImage, quat, (int)frameInfo.FrameCount,digitalIn);
+                    return new UclaMiniscopeV4Frame(rgbImage, quat, (int)frameInfo.FrameCount, digitalIn, frameInfo.FrameTime);
                 }
             }
         }
@@ -281,7 +281,7 @@ namespace OpenEphys.Miniscope
                         // (to take advantage of batch i2c command transmission, all controls need to be updated on the same block)
                         // We also send a dummy frame to the controls, to set the settings such as FPS before we receive the first frame
                         var controlsObservable = 
-                            Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, MiniscopeDaqDigitalIn.None))
+                            Observable.Return(new UclaMiniscopeV4Frame(null, new Quaternion(), 0, MiniscopeDaqDigitalIn.None, 0))
                             .Concat(frameObservable)
                             .Catch(Observable.Empty<UclaMiniscopeV4Frame>()) // NB : ignore exceptions on the control subscriptions. They will be catched downstream by Bonsai
                             .ObserveOn(TaskPoolScheduler.Default)
@@ -366,6 +366,7 @@ namespace OpenEphys.Miniscope
             public uint FrameTime;
             public uint State;
         }
+
         private static uint ExtractWord(ulong v)
         {
             return (uint)(((v >> 8) & 0x000000FF) |
@@ -373,6 +374,7 @@ namespace OpenEphys.Miniscope
                           ((v >> 24) & 0x00FF0000) |
                           ((v >> 32) & 0xFF000000));
         }
+
         static unsafe void ExtractMetadata(IntPtr buffer, out FrameInfo info, out Quaternion quat)
         {
             ulong* src = (ulong*)buffer;
