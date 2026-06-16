@@ -22,11 +22,10 @@ namespace OpenEphys.Miniscope.Design.GUI;
 public class FileSettings
 {
     /// <summary>
-    /// Gets or sets the current frame time, in milliseconds, used to display the acquisition frame rate.
+    /// Gets or sets the average frame rate, in seconds, used to display the acquisition frame rate.
     /// </summary>
     [XmlIgnore]
-    [Browsable(false)]
-    public uint FrameTime { get; set; }
+    public double AverageFrameRate { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether a recording is currently in progress.
@@ -42,8 +41,6 @@ public class FileSettings
 
     static readonly string[] CodecValues = Enum.GetNames(typeof(Codec));
     static readonly string[] PathSuffixValues = Enum.GetNames(typeof(PathSuffix));
-
-    static Vector2 buttonSize = new(-1f, -1f);
 
     /// <summary>
     /// Renders the file settings controls and returns an updated <see cref="FileSettingsDto"/> alongside each source value.
@@ -64,6 +61,7 @@ public class FileSettings
 
         DateTime acquisitionStart = DateTime.Now;
         Nullable<DateTime> recordingStart = null;
+        var childSize = new Vector2(-1f, 195);
 
         return Observable.Create<Tuple<TSource, FileSettingsDto>>(observer =>
         {
@@ -91,8 +89,6 @@ public class FileSettings
                 useRecordDuration = dto.UseRecordDuration;
 
                 ImGui.Text("File");
-
-                var childSize = new Vector2(-1, 165);
 
                 ImGui.BeginChild("##save_group", childSize, ImGuiChildFlags.Borders);
 
@@ -197,13 +193,12 @@ public class FileSettings
 
                     ImGui.TableNextColumn();
 
-                    ImGui.SameLine();
                     ImGui.Checkbox("Use Recording Duration##use_record_duration", ref useRecordDuration);
 
                     ImGui.EndTable();
                 }
 
-                if (ImGui.BeginTable("##buttons", 3))
+                if (ImGui.BeginTable("##buttons", 2))
                 {
                     ImGui.TableNextColumn();
 
@@ -213,6 +208,8 @@ public class FileSettings
                         ImGui.PushStyleColor(ImGuiCol.Button, ImGui.GetColorU32(ImGuiCol.ButtonActive));
                         buttonActive = true;
                     }
+
+                    Vector2 buttonSize = new(-1f, ImGui.GetFrameHeight() * 2);
 
                     if (ImGui.Button("Record##record_button", buttonSize))
                     {
@@ -247,10 +244,17 @@ public class FileSettings
                         ImGui.PopStyleColor();
                     }
 
-                    ImGui.TableNextColumn();
-                    ImGui.AlignTextToFramePadding();
+                    ImGui.EndTable();
+                }
 
-                    //ImGui.Text($"{FrameTime / 1e3:F1} frames/s"); // NB: FrameTime should be in ms
+                ImGui.Separator();
+
+                if (ImGui.BeginTable("##status_bar", 3))
+                {
+                    ImGui.TableNextColumn();
+                    ImGui.Text($"Frame Rate: {AverageFrameRate:F1} FPS");
+
+                    ImGui.TableNextColumn();
                     ImGui.Text($"Acquiring: {(DateTime.Now - acquisitionStart).TotalSeconds:F1} s");
                     if (RecordingStatus)
                     {
@@ -259,6 +263,7 @@ public class FileSettings
                             recordingStart = DateTime.Now;
                         }
 
+                        ImGui.TableNextColumn();
                         ImGui.Text($"Recording: {(DateTime.Now - recordingStart.Value).TotalSeconds:F1} s");
                     }
                     else if (recordingStart != null)

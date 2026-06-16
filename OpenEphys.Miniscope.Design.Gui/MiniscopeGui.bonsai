@@ -1,185 +1,20 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <WorkflowBuilder Version="2.9.0"
                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                 xmlns:cv="clr-namespace:Bonsai.Vision;assembly=Bonsai.Vision"
-                 xmlns:p1="clr-namespace:OpenEphys.Miniscope;assembly=OpenEphys.Miniscope"
                  xmlns:rx="clr-namespace:Bonsai.Reactive;assembly=Bonsai.Core"
-                 xmlns:scr="clr-namespace:Bonsai.Scripting.Expressions;assembly=Bonsai.Scripting.Expressions"
-                 xmlns:sys="clr-namespace:System;assembly=mscorlib"
+                 xmlns:cv="clr-namespace:Bonsai.Vision;assembly=Bonsai.Vision"
                  xmlns:io="clr-namespace:Bonsai.IO;assembly=Bonsai.System"
-                 xmlns:p2="clr-namespace:OpenEphys.Miniscope.Design.GUI;assembly=OpenEphys.Miniscope.Design.Gui"
+                 xmlns:sys="clr-namespace:System;assembly=mscorlib"
+                 xmlns:p1="clr-namespace:OpenCV.Net;assembly=OpenCV.Net"
+                 xmlns:p2="clr-namespace:OpenEphys.Miniscope;assembly=OpenEphys.Miniscope"
+                 xmlns:scr="clr-namespace:Bonsai.Scripting.Expressions;assembly=Bonsai.Scripting.Expressions"
+                 xmlns:p3="clr-namespace:OpenEphys.Miniscope.Design.GUI;assembly=OpenEphys.Miniscope.Design.Gui"
                  xmlns:ui="clr-namespace:Bonsai.Design;assembly=Bonsai.Design"
                  xmlns:imgui="clr-namespace:Bonsai.ImGui;assembly=Bonsai.ImGui"
                  xmlns:imviz="clr-namespace:Bonsai.ImGui.Visualizers;assembly=Bonsai.ImGui.Visualizers"
                  xmlns="https://bonsai-rx.org/2018/workflow">
   <Workflow>
     <Nodes>
-      <Expression xsi:type="ExternalizedMapping">
-        <Property Name="LedBrightness" />
-        <Property Name="Focus" />
-        <Property Name="Index" />
-        <Property Name="SensorGain" />
-        <Property Name="LedRespectsDigitalIn" />
-        <Property Name="FramesPerSecond" />
-      </Expression>
-      <Expression xsi:type="GroupWorkflow">
-        <Name>Data Acquisition</Name>
-        <Workflow>
-          <Nodes>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Index" Category="Acquisition" />
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="cv:CameraCapture">
-                <cv:Index>1</cv:Index>
-                <cv:CaptureProperties />
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="SubscribeSubject">
-              <Name>LedBrightness</Name>
-            </Expression>
-            <Expression xsi:type="PropertyMapping">
-              <PropertyMappings>
-                <Property Name="LedBrightness" />
-              </PropertyMappings>
-            </Expression>
-            <Expression xsi:type="SubscribeSubject">
-              <Name>Focus</Name>
-            </Expression>
-            <Expression xsi:type="PropertyMapping">
-              <PropertyMappings>
-                <Property Name="Focus" />
-              </PropertyMappings>
-            </Expression>
-            <Expression xsi:type="SubscribeSubject">
-              <Name>SensorGain</Name>
-            </Expression>
-            <Expression xsi:type="PropertyMapping">
-              <PropertyMappings>
-                <Property Name="SensorGain" />
-              </PropertyMappings>
-            </Expression>
-            <Expression xsi:type="SubscribeSubject">
-              <Name>FrameRate</Name>
-            </Expression>
-            <Expression xsi:type="PropertyMapping">
-              <PropertyMappings>
-                <Property Name="FramesPerSecond" />
-              </PropertyMappings>
-            </Expression>
-            <Expression xsi:type="SubscribeSubject">
-              <Name>LedRespectsDigitalIn</Name>
-            </Expression>
-            <Expression xsi:type="PropertyMapping">
-              <PropertyMappings>
-                <Property Name="LedRespectsDigitalIn" />
-              </PropertyMappings>
-            </Expression>
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="p1:UclaMiniscopeV4">
-                <p1:Index>0</p1:Index>
-                <p1:LedBrightness>1</p1:LedBrightness>
-                <p1:Focus>5</p1:Focus>
-                <p1:SensorGain>Low</p1:SensorGain>
-                <p1:FramesPerSecond>Fps30</p1:FramesPerSecond>
-                <p1:LedRespectsDigitalIn>None</p1:LedRespectsDigitalIn>
-              </Combinator>
-            </Expression>
-            <Expression xsi:type="rx:PublishSubject">
-              <Name>Frame</Name>
-            </Expression>
-            <Expression xsi:type="WorkflowOutput" />
-            <Expression xsi:type="Combinator">
-              <Combinator xsi:type="rx:TimeInterval" />
-            </Expression>
-            <Expression xsi:type="scr:ExpressionTransform">
-              <scr:Expression>1.0 / it.Interval.TotalSeconds</scr:Expression>
-            </Expression>
-            <Expression xsi:type="rx:PublishSubject">
-              <Name>CalculatedFrameRate</Name>
-            </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Value" DisplayName="LedRespectsDigitalIn" Category="Acquisition" />
-            </Expression>
-            <Expression xsi:type="PropertySource" TypeArguments="p1:UclaMiniscopeV4,p1:MiniscopeDaqDigitalIn">
-              <MemberName>LedRespectsDigitalIn</MemberName>
-              <Value>None</Value>
-            </Expression>
-            <Expression xsi:type="rx:BehaviorSubject">
-              <Name>LedRespectsDigitalIn</Name>
-            </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Value" DisplayName="FramesPerSecond" Category="Acquisition" />
-            </Expression>
-            <Expression xsi:type="PropertySource" TypeArguments="p1:UclaMiniscopeV4,p1:FrameRateV4">
-              <MemberName>FramesPerSecond</MemberName>
-              <Value>Fps30</Value>
-            </Expression>
-            <Expression xsi:type="rx:BehaviorSubject">
-              <Name>FrameRate</Name>
-            </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Value" DisplayName="SensorGain" Category="Acquisition" />
-            </Expression>
-            <Expression xsi:type="PropertySource" TypeArguments="p1:UclaMiniscopeV4,p1:GainV4">
-              <MemberName>SensorGain</MemberName>
-              <Value>Low</Value>
-            </Expression>
-            <Expression xsi:type="rx:BehaviorSubject">
-              <Name>SensorGain</Name>
-            </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Value" DisplayName="Focus" Category="Acquisition" />
-            </Expression>
-            <Expression xsi:type="PropertySource" TypeArguments="p1:UclaMiniscopeV4,sys:Double">
-              <MemberName>Focus</MemberName>
-              <Value>5</Value>
-            </Expression>
-            <Expression xsi:type="rx:BehaviorSubject">
-              <Name>Focus</Name>
-            </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Value" DisplayName="LedBrightness" Category="Acquisition" />
-            </Expression>
-            <Expression xsi:type="PropertySource" TypeArguments="p1:UclaMiniscopeV4,sys:Double">
-              <MemberName>LedBrightness</MemberName>
-              <Value>1</Value>
-            </Expression>
-            <Expression xsi:type="rx:BehaviorSubject">
-              <Name>LedBrightness</Name>
-            </Expression>
-          </Nodes>
-          <Edges>
-            <Edge From="0" To="1" Label="Source1" />
-            <Edge From="1" To="12" Label="Source1" />
-            <Edge From="2" To="3" Label="Source1" />
-            <Edge From="3" To="12" Label="Source2" />
-            <Edge From="4" To="5" Label="Source1" />
-            <Edge From="5" To="12" Label="Source3" />
-            <Edge From="6" To="7" Label="Source1" />
-            <Edge From="7" To="12" Label="Source4" />
-            <Edge From="8" To="9" Label="Source1" />
-            <Edge From="9" To="12" Label="Source5" />
-            <Edge From="10" To="11" Label="Source1" />
-            <Edge From="11" To="12" Label="Source6" />
-            <Edge From="12" To="13" Label="Source1" />
-            <Edge From="13" To="14" Label="Source1" />
-            <Edge From="13" To="15" Label="Source1" />
-            <Edge From="15" To="16" Label="Source1" />
-            <Edge From="16" To="17" Label="Source1" />
-            <Edge From="18" To="19" Label="Source1" />
-            <Edge From="19" To="20" Label="Source1" />
-            <Edge From="21" To="22" Label="Source1" />
-            <Edge From="22" To="23" Label="Source1" />
-            <Edge From="24" To="25" Label="Source1" />
-            <Edge From="25" To="26" Label="Source1" />
-            <Edge From="27" To="28" Label="Source1" />
-            <Edge From="28" To="29" Label="Source1" />
-            <Edge From="30" To="31" Label="Source1" />
-            <Edge From="31" To="32" Label="Source1" />
-          </Edges>
-        </Workflow>
-      </Expression>
       <Expression xsi:type="ExternalizedMapping">
         <Property Name="FileName" />
       </Expression>
@@ -276,6 +111,26 @@
             <Expression xsi:type="rx:BehaviorSubject">
               <Name>Sigma</Name>
             </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="DoubleProperty">
+                <Value>192</Value>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="rx:BehaviorSubject">
+              <Name>SaturationThreshold</Name>
+            </Expression>
+            <Expression xsi:type="PropertySource" TypeArguments="cv:SolidColor,p1:Scalar">
+              <MemberName>Color</MemberName>
+              <Value>
+                <Val0>0</Val0>
+                <Val1>0</Val1>
+                <Val2>100</Val2>
+                <Val3>100</Val3>
+              </Value>
+            </Expression>
+            <Expression xsi:type="rx:BehaviorSubject">
+              <Name>SaturationColor</Name>
+            </Expression>
           </Nodes>
           <Edges>
             <Edge From="0" To="1" Label="Source1" />
@@ -290,10 +145,186 @@
             <Edge From="17" To="18" Label="Source1" />
             <Edge From="19" To="20" Label="Source1" />
             <Edge From="21" To="22" Label="Source1" />
+            <Edge From="23" To="24" Label="Source1" />
+            <Edge From="25" To="26" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
-      <Expression xsi:type="p2:ImGuiMiniscopeVisualizerBuilder" />
+      <Expression xsi:type="ExternalizedMapping">
+        <Property Name="LedBrightness" />
+        <Property Name="Focus" />
+        <Property Name="Index" />
+        <Property Name="SensorGain" />
+        <Property Name="LedRespectsDigitalIn" />
+        <Property Name="FramesPerSecond" />
+      </Expression>
+      <Expression xsi:type="GroupWorkflow">
+        <Name>Data Acquisition</Name>
+        <Workflow>
+          <Nodes>
+            <Expression xsi:type="ExternalizedMapping">
+              <Property Name="Index" Category="Acquisition" />
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="cv:CameraCapture">
+                <cv:Index>1</cv:Index>
+                <cv:CaptureProperties />
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>LedBrightness</Name>
+            </Expression>
+            <Expression xsi:type="PropertyMapping">
+              <PropertyMappings>
+                <Property Name="LedBrightness" />
+              </PropertyMappings>
+            </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>Focus</Name>
+            </Expression>
+            <Expression xsi:type="PropertyMapping">
+              <PropertyMappings>
+                <Property Name="Focus" />
+              </PropertyMappings>
+            </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>SensorGain</Name>
+            </Expression>
+            <Expression xsi:type="PropertyMapping">
+              <PropertyMappings>
+                <Property Name="SensorGain" />
+              </PropertyMappings>
+            </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>FrameRate</Name>
+            </Expression>
+            <Expression xsi:type="PropertyMapping">
+              <PropertyMappings>
+                <Property Name="FramesPerSecond" />
+              </PropertyMappings>
+            </Expression>
+            <Expression xsi:type="SubscribeSubject">
+              <Name>LedRespectsDigitalIn</Name>
+            </Expression>
+            <Expression xsi:type="PropertyMapping">
+              <PropertyMappings>
+                <Property Name="LedRespectsDigitalIn" />
+              </PropertyMappings>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="p2:UclaMiniscopeV4">
+                <p2:Index>0</p2:Index>
+                <p2:LedBrightness>1</p2:LedBrightness>
+                <p2:Focus>5</p2:Focus>
+                <p2:SensorGain>Low</p2:SensorGain>
+                <p2:FramesPerSecond>Fps30</p2:FramesPerSecond>
+                <p2:LedRespectsDigitalIn>None</p2:LedRespectsDigitalIn>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="rx:BehaviorSubject">
+              <Name>Frame</Name>
+            </Expression>
+            <Expression xsi:type="WorkflowOutput" />
+            <Expression xsi:type="MemberSelector">
+              <Selector>FrameTime</Selector>
+            </Expression>
+            <Expression xsi:type="Combinator">
+              <Combinator xsi:type="rx:BufferTime">
+                <rx:TimeSpan>PT2S</rx:TimeSpan>
+                <rx:TimeShift>PT0.1S</rx:TimeShift>
+              </Combinator>
+            </Expression>
+            <Expression xsi:type="scr:ExpressionTransform">
+              <scr:Expression>(it.Count &gt; 1) ? (it.Count - 1) * 1e3 / (it[it.Count - 1] - it[0]) : (it.Count == 1) ? it[0] / 1e3 : 0.0</scr:Expression>
+            </Expression>
+            <Expression xsi:type="rx:PublishSubject">
+              <Name>AverageFrameRate</Name>
+            </Expression>
+            <Expression xsi:type="ExternalizedMapping">
+              <Property Name="Value" DisplayName="LedRespectsDigitalIn" Category="Acquisition" />
+            </Expression>
+            <Expression xsi:type="PropertySource" TypeArguments="p2:UclaMiniscopeV4,p2:MiniscopeDaqDigitalIn">
+              <MemberName>LedRespectsDigitalIn</MemberName>
+              <Value>None</Value>
+            </Expression>
+            <Expression xsi:type="rx:BehaviorSubject">
+              <Name>LedRespectsDigitalIn</Name>
+            </Expression>
+            <Expression xsi:type="ExternalizedMapping">
+              <Property Name="Value" DisplayName="FramesPerSecond" Category="Acquisition" />
+            </Expression>
+            <Expression xsi:type="PropertySource" TypeArguments="p2:UclaMiniscopeV4,p2:FrameRateV4">
+              <MemberName>FramesPerSecond</MemberName>
+              <Value>Fps30</Value>
+            </Expression>
+            <Expression xsi:type="rx:BehaviorSubject">
+              <Name>FrameRate</Name>
+            </Expression>
+            <Expression xsi:type="ExternalizedMapping">
+              <Property Name="Value" DisplayName="SensorGain" Category="Acquisition" />
+            </Expression>
+            <Expression xsi:type="PropertySource" TypeArguments="p2:UclaMiniscopeV4,p2:GainV4">
+              <MemberName>SensorGain</MemberName>
+              <Value>Low</Value>
+            </Expression>
+            <Expression xsi:type="rx:BehaviorSubject">
+              <Name>SensorGain</Name>
+            </Expression>
+            <Expression xsi:type="ExternalizedMapping">
+              <Property Name="Value" DisplayName="Focus" Category="Acquisition" />
+            </Expression>
+            <Expression xsi:type="PropertySource" TypeArguments="p2:UclaMiniscopeV4,sys:Double">
+              <MemberName>Focus</MemberName>
+              <Value>5</Value>
+            </Expression>
+            <Expression xsi:type="rx:BehaviorSubject">
+              <Name>Focus</Name>
+            </Expression>
+            <Expression xsi:type="ExternalizedMapping">
+              <Property Name="Value" DisplayName="LedBrightness" Category="Acquisition" />
+            </Expression>
+            <Expression xsi:type="PropertySource" TypeArguments="p2:UclaMiniscopeV4,sys:Double">
+              <MemberName>LedBrightness</MemberName>
+              <Value>1</Value>
+            </Expression>
+            <Expression xsi:type="rx:BehaviorSubject">
+              <Name>LedBrightness</Name>
+            </Expression>
+          </Nodes>
+          <Edges>
+            <Edge From="0" To="1" Label="Source1" />
+            <Edge From="1" To="12" Label="Source1" />
+            <Edge From="2" To="3" Label="Source1" />
+            <Edge From="3" To="12" Label="Source2" />
+            <Edge From="4" To="5" Label="Source1" />
+            <Edge From="5" To="12" Label="Source3" />
+            <Edge From="6" To="7" Label="Source1" />
+            <Edge From="7" To="12" Label="Source4" />
+            <Edge From="8" To="9" Label="Source1" />
+            <Edge From="9" To="12" Label="Source5" />
+            <Edge From="10" To="11" Label="Source1" />
+            <Edge From="11" To="12" Label="Source6" />
+            <Edge From="12" To="13" Label="Source1" />
+            <Edge From="13" To="14" Label="Source1" />
+            <Edge From="13" To="15" Label="Source1" />
+            <Edge From="15" To="16" Label="Source1" />
+            <Edge From="16" To="17" Label="Source1" />
+            <Edge From="17" To="18" Label="Source1" />
+            <Edge From="19" To="20" Label="Source1" />
+            <Edge From="20" To="21" Label="Source1" />
+            <Edge From="22" To="23" Label="Source1" />
+            <Edge From="23" To="24" Label="Source1" />
+            <Edge From="25" To="26" Label="Source1" />
+            <Edge From="26" To="27" Label="Source1" />
+            <Edge From="28" To="29" Label="Source1" />
+            <Edge From="29" To="30" Label="Source1" />
+            <Edge From="31" To="32" Label="Source1" />
+            <Edge From="32" To="33" Label="Source1" />
+          </Edges>
+        </Workflow>
+      </Expression>
+      <Expression xsi:type="WorkflowOutput" />
+      <Expression xsi:type="p3:ImGuiMiniscopeVisualizerBuilder" />
       <Expression xsi:type="rx:PublishSubject">
         <Name>ImageTick</Name>
       </Expression>
@@ -315,27 +346,27 @@
       <Expression xsi:type="imgui:TableBuilder">
         <imgui:Visible>true</imgui:Visible>
         <imgui:Columns>2</imgui:Columns>
-        <imgui:Flags>Resizable Hideable SizingStretchSame</imgui:Flags>
+        <imgui:Flags>Resizable Hideable</imgui:Flags>
         <imgui:OuterSize>
           <imgui:X>0</imgui:X>
           <imgui:Y>0</imgui:Y>
         </imgui:OuterSize>
         <imgui:InnerWidth>0</imgui:InnerWidth>
       </Expression>
-      <Expression xsi:type="p2:TableSetupColumnBuilder">
-        <p2:Visible>true</p2:Visible>
-        <p2:Label>Data</p2:Label>
-        <p2:Flags>None</p2:Flags>
-        <p2:InitWidth>0</p2:InitWidth>
+      <Expression xsi:type="p3:TableSetupColumnBuilder">
+        <p3:Visible>true</p3:Visible>
+        <p3:Label>Data</p3:Label>
+        <p3:Flags>None</p3:Flags>
+        <p3:InitWidth>0</p3:InitWidth>
       </Expression>
-      <Expression xsi:type="p2:TableSetupColumnBuilder">
-        <p2:Visible>true</p2:Visible>
-        <p2:Label>Settings</p2:Label>
-        <p2:Flags>None</p2:Flags>
-        <p2:InitWidth>0</p2:InitWidth>
+      <Expression xsi:type="p3:TableSetupColumnBuilder">
+        <p3:Visible>true</p3:Visible>
+        <p3:Label>Settings</p3:Label>
+        <p3:Flags>None</p3:Flags>
+        <p3:InitWidth>0</p3:InitWidth>
       </Expression>
-      <Expression xsi:type="p2:TableHeadersRowBuilder">
-        <p2:Visible>true</p2:Visible>
+      <Expression xsi:type="p3:TableHeadersRowBuilder">
+        <p3:Visible>true</p3:Visible>
       </Expression>
       <Expression xsi:type="imgui:TableNextColumnBuilder">
         <imgui:Visible>true</imgui:Visible>
@@ -377,9 +408,17 @@
                   <Expression xsi:type="WorkflowInput">
                     <Name>Source1</Name>
                   </Expression>
+                  <Expression xsi:type="SubscribeSubject">
+                    <Name>SaturationThreshold</Name>
+                  </Expression>
+                  <Expression xsi:type="PropertyMapping">
+                    <PropertyMappings>
+                      <Property Name="ThresholdValue" />
+                    </PropertyMappings>
+                  </Expression>
                   <Expression xsi:type="Combinator">
                     <Combinator xsi:type="cv:Threshold">
-                      <cv:ThresholdValue>192</cv:ThresholdValue>
+                      <cv:ThresholdValue>218.2</cv:ThresholdValue>
                       <cv:MaxValue>255</cv:MaxValue>
                       <cv:ThresholdType>ToZero</cv:ThresholdType>
                     </Combinator>
@@ -395,6 +434,14 @@
                       <Property Name="Size" />
                     </PropertyMappings>
                   </Expression>
+                  <Expression xsi:type="SubscribeSubject">
+                    <Name>SaturationColor</Name>
+                  </Expression>
+                  <Expression xsi:type="PropertyMapping">
+                    <PropertyMappings>
+                      <Property Name="Color" />
+                    </PropertyMappings>
+                  </Expression>
                   <Expression xsi:type="Combinator">
                     <Combinator xsi:type="cv:SolidColor">
                       <cv:Size>
@@ -406,7 +453,7 @@
                       <cv:Color>
                         <cv:Val0>0</cv:Val0>
                         <cv:Val1>0</cv:Val1>
-                        <cv:Val2>100</cv:Val2>
+                        <cv:Val2>255</cv:Val2>
                         <cv:Val3>100</cv:Val3>
                       </cv:Color>
                     </Combinator>
@@ -418,8 +465,8 @@
                     <Combinator xsi:type="cv:Mask">
                       <cv:FillValue>
                         <cv:Val0>1</cv:Val0>
-                        <cv:Val1>0</cv:Val1>
-                        <cv:Val2>0</cv:Val2>
+                        <cv:Val1>1</cv:Val1>
+                        <cv:Val2>1</cv:Val2>
                         <cv:Val3>1</cv:Val3>
                       </cv:FillValue>
                     </Combinator>
@@ -431,19 +478,23 @@
                   <Expression xsi:type="WorkflowOutput" />
                 </Nodes>
                 <Edges>
-                  <Edge From="0" To="1" Label="Source1" />
-                  <Edge From="0" To="8" Label="Source2" />
+                  <Edge From="0" To="3" Label="Source1" />
+                  <Edge From="0" To="12" Label="Source2" />
                   <Edge From="1" To="2" Label="Source1" />
-                  <Edge From="1" To="3" Label="Source1" />
-                  <Edge From="1" To="6" Label="Source2" />
-                  <Edge From="2" To="5" Label="Source1" />
+                  <Edge From="2" To="3" Label="Source2" />
                   <Edge From="3" To="4" Label="Source1" />
-                  <Edge From="4" To="5" Label="Source2" />
+                  <Edge From="3" To="5" Label="Source1" />
+                  <Edge From="3" To="10" Label="Source2" />
+                  <Edge From="4" To="9" Label="Source1" />
                   <Edge From="5" To="6" Label="Source1" />
-                  <Edge From="6" To="7" Label="Source1" />
+                  <Edge From="6" To="9" Label="Source2" />
                   <Edge From="7" To="8" Label="Source1" />
-                  <Edge From="8" To="9" Label="Source1" />
+                  <Edge From="8" To="9" Label="Source3" />
                   <Edge From="9" To="10" Label="Source1" />
+                  <Edge From="10" To="11" Label="Source1" />
+                  <Edge From="11" To="12" Label="Source1" />
+                  <Edge From="12" To="13" Label="Source1" />
+                  <Edge From="13" To="14" Label="Source1" />
                 </Edges>
               </Workflow>
             </Expression>
@@ -496,10 +547,10 @@
                     </PropertyMappings>
                   </Expression>
                   <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="p1:DeltaFOverF">
-                      <p1:BackgroundFrames>100</p1:BackgroundFrames>
-                      <p1:BackgroundThreshold>14.3</p1:BackgroundThreshold>
-                      <p1:Sigma>3</p1:Sigma>
+                    <Combinator xsi:type="p2:DeltaFOverF">
+                      <p2:BackgroundFrames>100</p2:BackgroundFrames>
+                      <p2:BackgroundThreshold>14.3</p2:BackgroundThreshold>
+                      <p2:Sigma>3</p2:Sigma>
                     </Combinator>
                   </Expression>
                   <Expression xsi:type="WorkflowOutput" />
@@ -556,9 +607,9 @@
               </PropertyMappings>
             </Expression>
             <Expression xsi:type="Combinator">
-              <Combinator xsi:type="p2:ImagePlotter">
-                <p2:ImageHeight>480</p2:ImageHeight>
-                <p2:ImageWidth>640</p2:ImageWidth>
+              <Combinator xsi:type="p3:ImagePlotter">
+                <p3:ImageHeight>480</p3:ImageHeight>
+                <p3:ImageWidth>640</p3:ImageWidth>
               </Combinator>
             </Expression>
             <Expression xsi:type="WorkflowOutput" />
@@ -625,13 +676,13 @@
                     <Name>LedRespectsDigitalIn</Name>
                   </Expression>
                   <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="p2:CreateMiniscopeSettingsDto" />
+                    <Combinator xsi:type="p3:CreateMiniscopeSettingsDto" />
                   </Expression>
                   <Expression xsi:type="Combinator">
                     <Combinator xsi:type="rx:WithLatestFrom" />
                   </Expression>
                   <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="p2:MiniscopeSettings" />
+                    <Combinator xsi:type="p3:MiniscopeSettings" />
                   </Expression>
                   <Expression xsi:type="MemberSelector">
                     <Selector>Item1</Selector>
@@ -713,6 +764,64 @@
               </Workflow>
             </Expression>
             <Expression xsi:type="GroupWorkflow">
+              <Name>Saturation Settings</Name>
+              <Workflow>
+                <Nodes>
+                  <Expression xsi:type="WorkflowInput">
+                    <Name>Source1</Name>
+                  </Expression>
+                  <Expression xsi:type="SubscribeSubject">
+                    <Name>SaturationThreshold</Name>
+                  </Expression>
+                  <Expression xsi:type="SubscribeSubject">
+                    <Name>SaturationColor</Name>
+                  </Expression>
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="p3:CreateSaturationSettingsDto" />
+                  </Expression>
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="rx:WithLatestFrom" />
+                  </Expression>
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="p3:SaturationSettings" />
+                  </Expression>
+                  <Expression xsi:type="WorkflowOutput" />
+                  <Expression xsi:type="MemberSelector">
+                    <Selector>Item2.Threshold</Selector>
+                  </Expression>
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="rx:DistinctUntilChanged" />
+                  </Expression>
+                  <Expression xsi:type="MulticastSubject">
+                    <Name>SaturationThreshold</Name>
+                  </Expression>
+                  <Expression xsi:type="MemberSelector">
+                    <Selector>Item2.Color</Selector>
+                  </Expression>
+                  <Expression xsi:type="Combinator">
+                    <Combinator xsi:type="rx:DistinctUntilChanged" />
+                  </Expression>
+                  <Expression xsi:type="MulticastSubject">
+                    <Name>SaturationColor</Name>
+                  </Expression>
+                </Nodes>
+                <Edges>
+                  <Edge From="0" To="4" Label="Source1" />
+                  <Edge From="1" To="3" Label="Source1" />
+                  <Edge From="2" To="3" Label="Source2" />
+                  <Edge From="3" To="4" Label="Source2" />
+                  <Edge From="4" To="5" Label="Source1" />
+                  <Edge From="5" To="6" Label="Source1" />
+                  <Edge From="5" To="7" Label="Source1" />
+                  <Edge From="5" To="10" Label="Source1" />
+                  <Edge From="7" To="8" Label="Source1" />
+                  <Edge From="8" To="9" Label="Source1" />
+                  <Edge From="10" To="11" Label="Source1" />
+                  <Edge From="11" To="12" Label="Source1" />
+                </Edges>
+              </Workflow>
+            </Expression>
+            <Expression xsi:type="GroupWorkflow">
               <Name>DeltaFOverF Settings</Name>
               <Workflow>
                 <Nodes>
@@ -729,13 +838,13 @@
                     <Name>Sigma</Name>
                   </Expression>
                   <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="p2:CreateDffSettingsDto" />
+                    <Combinator xsi:type="p3:CreateDffSettingsDto" />
                   </Expression>
                   <Expression xsi:type="Combinator">
                     <Combinator xsi:type="rx:WithLatestFrom" />
                   </Expression>
                   <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="p2:DffSettings" />
+                    <Combinator xsi:type="p3:DffSettings" />
                   </Expression>
                   <Expression xsi:type="WorkflowOutput" />
                   <Expression xsi:type="MemberSelector">
@@ -819,21 +928,10 @@
                     <Name>UseRecordDuration</Name>
                   </Expression>
                   <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="p2:CreateFileSettingsDto" />
+                    <Combinator xsi:type="p3:CreateFileSettingsDto" />
                   </Expression>
                   <Expression xsi:type="Combinator">
                     <Combinator xsi:type="rx:WithLatestFrom" />
-                  </Expression>
-                  <Expression xsi:type="SubscribeSubject">
-                    <Name>Frame</Name>
-                  </Expression>
-                  <Expression xsi:type="MemberSelector">
-                    <Selector>FrameTime</Selector>
-                  </Expression>
-                  <Expression xsi:type="PropertyMapping">
-                    <PropertyMappings>
-                      <Property Name="FrameTime" />
-                    </PropertyMappings>
                   </Expression>
                   <Expression xsi:type="SubscribeSubject">
                     <Name>RecordingStatus</Name>
@@ -843,8 +941,16 @@
                       <Property Name="RecordingStatus" />
                     </PropertyMappings>
                   </Expression>
+                  <Expression xsi:type="SubscribeSubject">
+                    <Name>AverageFrameRate</Name>
+                  </Expression>
+                  <Expression xsi:type="PropertyMapping">
+                    <PropertyMappings>
+                      <Property Name="AverageFrameRate" />
+                    </PropertyMappings>
+                  </Expression>
                   <Expression xsi:type="Combinator">
-                    <Combinator xsi:type="p2:FileSettings" />
+                    <Combinator xsi:type="p3:FileSettings" />
                   </Expression>
                   <Expression xsi:type="MemberSelector">
                     <Selector>Item1</Selector>
@@ -924,35 +1030,34 @@
                   <Edge From="6" To="8" Label="Source6" />
                   <Edge From="7" To="8" Label="Source7" />
                   <Edge From="8" To="9" Label="Source2" />
-                  <Edge From="9" To="15" Label="Source1" />
+                  <Edge From="9" To="14" Label="Source1" />
                   <Edge From="10" To="11" Label="Source1" />
-                  <Edge From="11" To="12" Label="Source1" />
-                  <Edge From="12" To="15" Label="Source2" />
-                  <Edge From="13" To="14" Label="Source1" />
-                  <Edge From="14" To="15" Label="Source3" />
+                  <Edge From="11" To="14" Label="Source2" />
+                  <Edge From="12" To="13" Label="Source1" />
+                  <Edge From="13" To="14" Label="Source3" />
+                  <Edge From="14" To="15" Label="Source1" />
+                  <Edge From="14" To="17" Label="Source1" />
+                  <Edge From="14" To="20" Label="Source1" />
+                  <Edge From="14" To="23" Label="Source1" />
+                  <Edge From="14" To="26" Label="Source1" />
+                  <Edge From="14" To="29" Label="Source1" />
+                  <Edge From="14" To="32" Label="Source1" />
+                  <Edge From="14" To="35" Label="Source1" />
                   <Edge From="15" To="16" Label="Source1" />
-                  <Edge From="15" To="18" Label="Source1" />
-                  <Edge From="15" To="21" Label="Source1" />
-                  <Edge From="15" To="24" Label="Source1" />
-                  <Edge From="15" To="27" Label="Source1" />
-                  <Edge From="15" To="30" Label="Source1" />
-                  <Edge From="15" To="33" Label="Source1" />
-                  <Edge From="15" To="36" Label="Source1" />
-                  <Edge From="16" To="17" Label="Source1" />
+                  <Edge From="17" To="18" Label="Source1" />
                   <Edge From="18" To="19" Label="Source1" />
-                  <Edge From="19" To="20" Label="Source1" />
+                  <Edge From="20" To="21" Label="Source1" />
                   <Edge From="21" To="22" Label="Source1" />
-                  <Edge From="22" To="23" Label="Source1" />
+                  <Edge From="23" To="24" Label="Source1" />
                   <Edge From="24" To="25" Label="Source1" />
-                  <Edge From="25" To="26" Label="Source1" />
+                  <Edge From="26" To="27" Label="Source1" />
                   <Edge From="27" To="28" Label="Source1" />
-                  <Edge From="28" To="29" Label="Source1" />
+                  <Edge From="29" To="30" Label="Source1" />
                   <Edge From="30" To="31" Label="Source1" />
-                  <Edge From="31" To="32" Label="Source1" />
+                  <Edge From="32" To="33" Label="Source1" />
                   <Edge From="33" To="34" Label="Source1" />
-                  <Edge From="34" To="35" Label="Source1" />
+                  <Edge From="35" To="36" Label="Source1" />
                   <Edge From="36" To="37" Label="Source1" />
-                  <Edge From="37" To="38" Label="Source1" />
                 </Edges>
               </Workflow>
             </Expression>
@@ -963,6 +1068,7 @@
             <Edge From="1" To="2" Label="Source1" />
             <Edge From="2" To="3" Label="Source1" />
             <Edge From="3" To="4" Label="Source1" />
+            <Edge From="4" To="5" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
@@ -970,9 +1076,7 @@
         <imgui:Visible>true</imgui:Visible>
       </Expression>
       <Expression xsi:type="ExternalizedMapping">
-        <Property Name="QuaternionBufferSize" />
-        <Property Name="DigitalInBufferSize" />
-        <Property Name="FrameBufferSize" />
+        <Property Name="BufferSize" />
       </Expression>
       <Expression xsi:type="GroupWorkflow">
         <Name>Plot Time Series</Name>
@@ -988,7 +1092,7 @@
               <Selector>Quaternion</Selector>
             </Expression>
             <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Capacity" DisplayName="QuaternionBufferSize" Category="Display" />
+              <Property Name="Capacity" DisplayName="BufferSize" Category="Display" />
             </Expression>
             <Expression xsi:type="imviz:RollingBufferBuilder">
               <imviz:Capacity>500</imviz:Capacity>
@@ -1007,20 +1111,17 @@
               <Selector>DigitalIn</Selector>
             </Expression>
             <Expression xsi:type="HasFlag">
-              <Operand xsi:type="WorkflowProperty" TypeArguments="p1:MiniscopeDaqDigitalIn">
+              <Operand xsi:type="WorkflowProperty" TypeArguments="p2:MiniscopeDaqDigitalIn">
                 <Value>DigitalIn0</Value>
               </Operand>
             </Expression>
             <Expression xsi:type="HasFlag">
-              <Operand xsi:type="WorkflowProperty" TypeArguments="p1:MiniscopeDaqDigitalIn">
+              <Operand xsi:type="WorkflowProperty" TypeArguments="p2:MiniscopeDaqDigitalIn">
                 <Value>DigitalIn1</Value>
               </Operand>
             </Expression>
             <Expression xsi:type="Combinator">
               <Combinator xsi:type="rx:Zip" />
-            </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Capacity" DisplayName="DigitalInBufferSize" Category="Display" />
             </Expression>
             <Expression xsi:type="imviz:RollingBufferBuilder">
               <imviz:Capacity>500</imviz:Capacity>
@@ -1033,25 +1134,6 @@
             <Expression xsi:type="PropertyMapping">
               <PropertyMappings>
                 <Property Name="DigitalInSeries" />
-              </PropertyMappings>
-            </Expression>
-            <Expression xsi:type="SubscribeSubject">
-              <Name>CalculatedFrameRate</Name>
-            </Expression>
-            <Expression xsi:type="ExternalizedMapping">
-              <Property Name="Capacity" DisplayName="FrameBufferSize" Category="Display" />
-            </Expression>
-            <Expression xsi:type="imviz:RollingBufferBuilder">
-              <imviz:Capacity>500</imviz:Capacity>
-              <imviz:IndexSelector />
-              <imviz:ValueSelector>it</imviz:ValueSelector>
-            </Expression>
-            <Expression xsi:type="imviz:LatestOnNewFrame">
-              <Name>ImageTick</Name>
-            </Expression>
-            <Expression xsi:type="PropertyMapping">
-              <PropertyMappings>
-                <Property Name="FrameRateSeries" />
               </PropertyMappings>
             </Expression>
             <Expression xsi:type="MemberSelector">
@@ -1072,47 +1154,38 @@
               </PropertyMappings>
             </Expression>
             <Expression xsi:type="Combinator">
-              <Combinator xsi:type="p2:SignalPlotter" />
+              <Combinator xsi:type="p3:SignalPlotter" />
             </Expression>
             <Expression xsi:type="WorkflowOutput" />
           </Nodes>
           <Edges>
-            <Edge From="0" To="25" Label="Source1" />
+            <Edge From="0" To="19" Label="Source1" />
             <Edge From="1" To="2" Label="Source1" />
             <Edge From="1" To="7" Label="Source1" />
-            <Edge From="1" To="20" Label="Source1" />
+            <Edge From="1" To="14" Label="Source1" />
             <Edge From="2" To="4" Label="Source1" />
             <Edge From="3" To="4" Label="Source2" />
+            <Edge From="3" To="11" Label="Source2" />
             <Edge From="4" To="5" Label="Source1" />
             <Edge From="5" To="6" Label="Source1" />
-            <Edge From="6" To="25" Label="Source2" />
+            <Edge From="6" To="19" Label="Source2" />
             <Edge From="7" To="8" Label="Source1" />
             <Edge From="7" To="9" Label="Source1" />
             <Edge From="8" To="10" Label="Source1" />
             <Edge From="9" To="10" Label="Source2" />
-            <Edge From="10" To="12" Label="Source1" />
-            <Edge From="11" To="12" Label="Source2" />
+            <Edge From="10" To="11" Label="Source1" />
+            <Edge From="11" To="12" Label="Source1" />
             <Edge From="12" To="13" Label="Source1" />
-            <Edge From="13" To="14" Label="Source1" />
-            <Edge From="14" To="25" Label="Source3" />
-            <Edge From="15" To="17" Label="Source1" />
-            <Edge From="16" To="17" Label="Source2" />
+            <Edge From="13" To="19" Label="Source3" />
+            <Edge From="14" To="15" Label="Source1" />
+            <Edge From="15" To="16" Label="Source1" />
+            <Edge From="16" To="17" Label="Source1" />
             <Edge From="17" To="18" Label="Source1" />
-            <Edge From="18" To="19" Label="Source1" />
-            <Edge From="19" To="25" Label="Source4" />
-            <Edge From="20" To="21" Label="Source1" />
-            <Edge From="21" To="22" Label="Source1" />
-            <Edge From="22" To="23" Label="Source1" />
-            <Edge From="23" To="24" Label="Source1" />
-            <Edge From="24" To="25" Label="Source5" />
-            <Edge From="25" To="26" Label="Source1" />
+            <Edge From="18" To="19" Label="Source4" />
+            <Edge From="19" To="20" Label="Source1" />
           </Edges>
         </Workflow>
       </Expression>
-      <Expression xsi:type="SubscribeSubject">
-        <Name>Frame</Name>
-      </Expression>
-      <Expression xsi:type="WorkflowOutput" />
       <Expression xsi:type="GroupWorkflow">
         <Name>Save Data</Name>
         <Workflow>
@@ -1140,7 +1213,7 @@
               <Selector>DigitalIn</Selector>
             </Expression>
             <Expression xsi:type="HasFlag">
-              <Operand xsi:type="WorkflowProperty" TypeArguments="p1:MiniscopeDaqDigitalIn">
+              <Operand xsi:type="WorkflowProperty" TypeArguments="p2:MiniscopeDaqDigitalIn">
                 <Value>DigitalIn0 DigitalIn1</Value>
               </Operand>
             </Expression>
@@ -1282,7 +1355,7 @@
                     <Selector>DigitalIn</Selector>
                   </Expression>
                   <Expression xsi:type="HasFlag">
-                    <Operand xsi:type="WorkflowProperty" TypeArguments="p1:MiniscopeDaqDigitalIn">
+                    <Operand xsi:type="WorkflowProperty" TypeArguments="p2:MiniscopeDaqDigitalIn">
                       <Value>DigitalIn0 DigitalIn1</Value>
                     </Operand>
                   </Expression>
@@ -1502,20 +1575,20 @@
     <Edges>
       <Edge From="0" To="1" Label="Source1" />
       <Edge From="2" To="3" Label="Source1" />
-      <Edge From="4" To="5" Label="Source1" />
-      <Edge From="4" To="6" Label="Source1" />
-      <Edge From="7" To="8" Label="Source1" />
+      <Edge From="3" To="4" Label="Source1" />
+      <Edge From="5" To="6" Label="Source1" />
+      <Edge From="5" To="7" Label="Source1" />
       <Edge From="8" To="9" Label="Source1" />
       <Edge From="9" To="10" Label="Source1" />
       <Edge From="10" To="11" Label="Source1" />
       <Edge From="11" To="12" Label="Source1" />
-      <Edge From="11" To="14" Label="Source1" />
-      <Edge From="11" To="16" Label="Source1" />
       <Edge From="12" To="13" Label="Source1" />
-      <Edge From="14" To="15" Label="Source1" />
-      <Edge From="16" To="18" Label="Source1" />
-      <Edge From="17" To="18" Label="Source2" />
-      <Edge From="19" To="20" Label="Source1" />
+      <Edge From="12" To="15" Label="Source1" />
+      <Edge From="12" To="17" Label="Source1" />
+      <Edge From="13" To="14" Label="Source1" />
+      <Edge From="15" To="16" Label="Source1" />
+      <Edge From="17" To="19" Label="Source1" />
+      <Edge From="18" To="19" Label="Source2" />
     </Edges>
   </Workflow>
 </WorkflowBuilder>

@@ -34,13 +34,6 @@ public class SignalPlotter
     public RollingPlotPointSeries<Tuple<bool, bool>> DigitalInSeries { get; set; }
 
     /// <summary>
-    /// Gets or sets the rolling series of frame rate values plotted in the time series tab.
-    /// </summary>
-    [XmlIgnore]
-    [Browsable(false)]
-    public RollingPlotPointSeries<double> FrameRateSeries { get; set; }
-
-    /// <summary>
     /// Gets or sets the pixel intensity histogram plotted in the histogram tab.
     /// </summary>
     [XmlIgnore]
