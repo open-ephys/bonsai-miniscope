@@ -19,6 +19,7 @@
     <PackageReference Include="Bonsai.ImGui.Visualizers" Version="0.2.0" />
     <PackageReference Include="Bonsai.ImPlot" Version="0.2.0" />
     <PackageReference Include="Bonsai.Vision" Version="2.9.0" />
+    <PackageReference Include="OpenEphys.Commutator" Version="0.3.1" />
   </ItemGroup>
 
   <ItemGroup>
