@@ -77,7 +77,7 @@ public class DataPanel
     [Browsable(false)]
     public ScalarHistogram ImageHistogram { get; set; }
 
-    readonly Vector2 fillWidth = new(-1, 0);
+    readonly Vector2 fillWidth = new(-1, -1);
     readonly ImPlotFlags plotFlags = ImPlotFlags.NoMenus | ImPlotFlags.NoInputs;
     readonly string[] digitalInLabels = new string[] { MiniscopeDaqDigitalIn.DigitalIn0.ToString(), MiniscopeDaqDigitalIn.DigitalIn1.ToString() };
     readonly string[] histogramAxisTickLabels = new string[] { "0%", "20%", "40%", "60%", "80%", "100%" };
@@ -98,14 +98,16 @@ public class DataPanel
                     float fraction = Math.Max(0f, Math.Min(1f, ImageHeightFraction));
                     float tabBarHeight = ImGui.GetFrameHeight() + ImGui.GetStyle().ItemSpacing.Y;
                     float imageChildHeight = totalHeight * fraction - tabBarHeight;
-                    float signalChildHeight = totalHeight * (1f - fraction) - tabBarHeight - ImGui.GetStyle().ItemSpacing.Y;
 
-                    ImGui.BeginChild("##Data", new Vector2(ImGui.GetContentRegionAvail().X - SettingsPanel.GetCurrentWidth, -1f));
+                    ImGui.BeginChild("##Data", fillWidth);
 
                     ImGui.BeginChild("##image_pane", new Vector2(-1, imageChildHeight), ImGuiChildFlags.None);
 
+                    var availableSize = ImGui.GetContentRegionAvail();
+                    availableSize.Y -= tabBarHeight;
+
                     var displaySize = CalculateDisplaySize(
-                        ImGui.GetContentRegionAvail(),
+                        availableSize,
                         new Vector2(ImageWidth, ImageHeight));
 
                     if (ImGui.BeginTabBar("##ImageTabBar", ImGuiTabBarFlags.NoCloseWithMiddleMouseButton | ImGuiTabBarFlags.DrawSelectedOverline))
@@ -133,7 +135,7 @@ public class DataPanel
 
                     ImGui.EndChild();
 
-                    ImGui.BeginChild("##signal_pane", new Vector2(-1, signalChildHeight), ImGuiChildFlags.None);
+                    ImGui.BeginChild("##signal_pane", new Vector2(-1, -1), ImGuiChildFlags.None);
 
                     if (ImGui.BeginTabBar("##SignalTabBar"))
                     {

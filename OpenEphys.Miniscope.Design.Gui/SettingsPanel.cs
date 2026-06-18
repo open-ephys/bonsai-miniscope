@@ -24,10 +24,25 @@ namespace OpenEphys.Miniscope.Design.GUI;
 [Description("Renders all settings panels in a collapsible right-hand sidebar.")]
 public class SettingsPanel
 {
-    const float ExpandedWidth = 350f;
+    const float ExpandedWidth = 375f;
     const float CollapsedWidth = 36f;
 
-    static internal float GetCurrentWidth => settingsOpen ? ExpandedWidth : CollapsedWidth;
+    static float GetCurrentWidth(float availableX)
+    {
+        if (settingsOpen)
+        {
+            if (ExpandedWidth <= availableX)
+                return ExpandedWidth;
+
+            else
+            {
+                settingsOpen = false;
+                return availableX;
+            }
+        }
+
+        return CollapsedWidth;
+    }
 
     static readonly string[] SensorGainValues = Enum.GetNames(typeof(GainV4)); // TODO: This is sorted by backing value => High | Low | Medium.
     static readonly string[] FrameRateValues = Enum.GetNames(typeof(FrameRateV4)).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
@@ -49,6 +64,13 @@ public class SettingsPanel
     [Browsable(false)]
     public bool RecordingStatus { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether acquisition is currently in progress.
+    /// </summary>
+    [XmlIgnore]
+    [Browsable(false)]
+    public bool AcquisitionStatus { get; set; }
+
     static bool settingsOpen = true;
 
     /// <summary>
@@ -64,7 +86,7 @@ public class SettingsPanel
             const nuint bufSize = 1024;
             string fileName = string.Empty;
             Task<string> saveDialogTask = null;
-            DateTime acquisitionStart = DateTime.Now;
+            DateTime? acquisitionStart = null;
             DateTime? recordingStart = null;
 
             var portNames = SerialPort.GetPortNames();
@@ -106,23 +128,21 @@ public class SettingsPanel
                 bool commutatorEnableLed = dto.Commutator.EnableLed;
                 string commutatorStatus = dto.Commutator.StatusMessage;
 
-                float panelWidth = GetCurrentWidth;
-
                 float availableX = ImGui.GetContentRegionAvail().X;
-                ImGui.SetCursorPosX(ImGui.GetCursorPosX() + availableX - panelWidth);
+                float panelWidth = GetCurrentWidth(availableX);
 
-                ImGui.BeginChild("##settings_pane", new Vector2(panelWidth, -1), ImGuiChildFlags.Borders);
+                ImGui.BeginChild("##settings_pane", new Vector2(panelWidth - ImGui.GetStyle().ChildBorderSize, -1), ImGuiChildFlags.Borders);
 
                 if (!settingsOpen)
                 {
-                    if (ImGui.ArrowButton("##settings_open", ImGuiDir.Left))
+                    if (ImGui.ArrowButton("##settings_open", ImGuiDir.Right))
                     {
                         settingsOpen = true;
                     }
                 }
                 else
                 {
-                    if (ImGui.ArrowButton("##settings_close", ImGuiDir.Right))
+                    if (ImGui.ArrowButton("##settings_close", ImGuiDir.Left))
                         settingsOpen = false;
 
                     ImGui.SameLine();
@@ -132,25 +152,41 @@ public class SettingsPanel
                     ImGui.SetNextItemOpen(true, ImGuiCond.Once);
                     if (ImGui.CollapsingHeader("Miniscope##miniscope_header"))
                     {
-                        ImGui.BeginChild("##miniscope_group", new Vector2(-1, 110), ImGuiChildFlags.Borders);
+                        ImGui.BeginChild("##miniscope_group", new Vector2(-1, 125), ImGuiChildFlags.Borders);
 
-                        if (ImGui.BeginTable("##row1", 2))
+                        ImGui.AlignTextToFramePadding();
+                        ImGui.Text("Focus: ");
+                        ImGui.SameLine();
+                        ImGui.SetNextItemWidth(-1f);
+                        double focusMin = -100, focusMax = 100;
+                        ImGui.SliderScalar("##focus", ImGuiDataType.Double, &focus, &focusMin, &focusMax, "%.1f", ImGuiSliderFlags.AlwaysClamp);
+
+                        ImGui.AlignTextToFramePadding();
+                        ImGui.Text("LED Brightness: ");
+                        ImGui.SameLine();
+                        ImGui.SetNextItemWidth(-1f);
+                        double brightnessMin = 0, brightnessMax = 100;
+                        ImGui.SliderScalar("##ledbrightness", ImGuiDataType.Double, &ledBrightness, &brightnessMin, &brightnessMax, "%.1f", ImGuiSliderFlags.AlwaysClamp);
+
+                        if (ImGui.BeginTable("##row2", 2))
                         {
                             ImGui.TableNextColumn();
                             ImGui.AlignTextToFramePadding();
-                            ImGui.Text("Focus: ");
+                            ImGui.Text("Frame Rate: ");
                             ImGui.SameLine();
                             ImGui.SetNextItemWidth(-1f);
-
-                            double focusMin = -100, focusMax = 100;
-                            ImGui.SliderScalar("##focus", ImGuiDataType.Double, &focus, &focusMin, &focusMax, "%.1f");
+                            int frameRateIndex = Array.IndexOf(FrameRateValues, frameRate.ToString());
+                            if (ImGui.Combo("##framerate", ref frameRateIndex, FrameRateValues, FrameRateValues.Length))
+                            {
+                                if (Enum.TryParse<FrameRateV4>(FrameRateValues[frameRateIndex], out var result))
+                                    frameRate = result;
+                            }
 
                             ImGui.TableNextColumn();
                             ImGui.AlignTextToFramePadding();
                             ImGui.Text("Sensor Gain: ");
                             ImGui.SameLine();
                             ImGui.SetNextItemWidth(-1f);
-
                             int sensorGainIndex = Array.IndexOf(SensorGainValues, sensorGain.ToString());
                             if (ImGui.Combo("##sensorgain", ref sensorGainIndex, SensorGainValues, SensorGainValues.Length))
                             {
@@ -160,37 +196,9 @@ public class SettingsPanel
 
                             ImGui.TableNextColumn();
                             ImGui.AlignTextToFramePadding();
-                            ImGui.Text("Frame Rate: ");
-                            ImGui.SameLine();
-                            ImGui.SetNextItemWidth(-1f);
-
-                            int frameRateIndex = Array.IndexOf(FrameRateValues, frameRate.ToString());
-                            if (ImGui.Combo("##framerate", ref frameRateIndex, FrameRateValues, FrameRateValues.Length))
-                            {
-                                if (Enum.TryParse<FrameRateV4>(FrameRateValues[frameRateIndex], out var result))
-                                    frameRate = result;
-                            }
-
-                            ImGui.EndTable();
-                        }
-
-                        if (ImGui.BeginTable("##row2", 2))
-                        {
-                            ImGui.TableNextColumn();
-                            ImGui.AlignTextToFramePadding();
-                            ImGui.Text("LED Brightness: ");
-                            ImGui.SameLine();
-                            ImGui.SetNextItemWidth(-1f);
-
-                            double brightnessMin = 0, brightnessMax = 100;
-                            ImGui.SliderScalar("##ledbrightness", ImGuiDataType.Double, &ledBrightness, &brightnessMin, &brightnessMax, "%.1f");
-
-                            ImGui.TableNextColumn();
-                            ImGui.AlignTextToFramePadding();
                             ImGui.Text("LED Trigger: ");
                             ImGui.SameLine();
                             ImGui.SetNextItemWidth(-1f);
-
                             int digitalInIndex = Array.IndexOf(DigitalInValues, ledRespectsDigitalIn.ToString());
                             if (ImGui.Combo("##ledrespectdigitalin", ref digitalInIndex, DigitalInValues, DigitalInValues.Length))
                             {
@@ -207,7 +215,7 @@ public class SettingsPanel
                     ImGui.SetNextItemOpen(true, ImGuiCond.Once);
                     if (ImGui.CollapsingHeader("File##file_header"))
                     {
-                        ImGui.BeginChild("##save_group", new Vector2(-1, 195), ImGuiChildFlags.Borders);
+                        ImGui.BeginChild("##save_group", new Vector2(-1, 245), ImGuiChildFlags.Borders);
 
                         ImGui.Text("File Name Template");
                         if (ImGui.IsItemHovered(ImGuiHoveredFlags.None))
@@ -295,18 +303,19 @@ public class SettingsPanel
                             if (ImGui.Combo("##codecs", ref codecIndex, CodecValues, CodecValues.Length))
                                 videoCodec = CodecValues[codecIndex];
 
-                            ImGui.TableNextColumn();
-                            ImGui.AlignTextToFramePadding();
-                            ImGui.Text("Recording Duration [s]:");
-                            ImGui.SameLine();
-                            ImGui.SetNextItemWidth(-1f);
-                            ImGui.InputInt("##recording_duration", ref recordingDurationSeconds, ImGuiInputTextFlags.AutoSelectAll);
-
-                            ImGui.TableNextColumn();
-                            ImGui.Checkbox("Use Recording Duration##use_record_duration", ref useRecordDuration);
-
                             ImGui.EndTable();
                         }
+
+                        ImGui.AlignTextToFramePadding();
+                        ImGui.Text("Recording Duration [s]:");
+                        ImGui.SameLine();
+                        ImGui.SetNextItemWidth(-1f);
+                        if (ImGui.InputInt("##recording_duration", ref recordingDurationSeconds, ImGuiInputTextFlags.AutoSelectAll))
+                        {
+                            recordingDurationSeconds = Math.Max(0, recordingDurationSeconds);
+                        }
+
+                        ImGui.Checkbox("Use Recording Duration##use_record_duration", ref useRecordDuration);
 
                         if (ImGui.BeginTable("##buttons", 2))
                         {
@@ -357,17 +366,40 @@ public class SettingsPanel
                         if (ImGui.BeginTable("##status_bar", 3))
                         {
                             ImGui.TableNextColumn();
-                            ImGui.Text($"Frame Rate: {AverageFrameRate:F1} FPS");
+                            ImGui.Text("Frame Rate:");
 
                             ImGui.TableNextColumn();
-                            ImGui.Text($"Acquiring: {(DateTime.Now - acquisitionStart).TotalSeconds:F1} s");
+                            if (AcquisitionStatus)
+                            {
+                                ImGui.Text("Acquiring:");
+                            }
+
+                            ImGui.TableNextColumn();
 
                             if (RecordingStatus)
                             {
-                                recordingStart ??= DateTime.Now;
+                                ImGui.Text("Recording:");
+                            }
 
-                                ImGui.TableNextColumn();
-                                ImGui.Text($"Recording: {(DateTime.Now - recordingStart.Value).TotalSeconds:F1} s");
+                            ImGui.TableNextColumn();
+                            ImGui.Text($"{AverageFrameRate:F1} FPS");
+
+                            ImGui.TableNextColumn();
+                            if (AcquisitionStatus)
+                            {
+                                acquisitionStart ??= DateTime.Now;
+                                ImGui.Text($"{(DateTime.Now - acquisitionStart.Value).TotalSeconds:F1} s");
+                            }
+                            else if (acquisitionStart != null)
+                            {
+                                acquisitionStart = null;
+                            }
+
+                            ImGui.TableNextColumn();
+                            if (RecordingStatus)
+                            {
+                                recordingStart ??= DateTime.Now;
+                                ImGui.Text($"{(DateTime.Now - recordingStart.Value).TotalSeconds:F1} s");
                             }
                             else if (recordingStart != null)
                             {
@@ -389,13 +421,18 @@ public class SettingsPanel
                         ImGui.SetNextItemWidth(-1f);
 
                         double thresholdMin = 0, thresholdMax = 255;
-                        ImGui.SliderScalar("##saturation_threshold", ImGuiDataType.Double, &satThreshold, &thresholdMin, &thresholdMax, "%.1f");
+                        ImGui.SliderScalar("##saturation_threshold", ImGuiDataType.Double, &satThreshold, &thresholdMin, &thresholdMax, "%.1f", ImGuiSliderFlags.AlwaysClamp);
 
                         ImGui.Text("Color: ");
                         ImGui.SameLine();
                         ImGui.SetNextItemWidth(-1f);
 
-                        ImGui.ColorEdit4("##saturation_color", ref satColor, ImGuiColorEditFlags.Uint8 | ImGuiColorEditFlags.NoAlpha | ImGuiColorEditFlags.NoOptions);
+                        if (ImGui.ColorEdit4("##saturation_color", ref satColor, ImGuiColorEditFlags.Uint8 | ImGuiColorEditFlags.NoAlpha | ImGuiColorEditFlags.NoOptions))
+                        {
+                            satColor.X = Math.Max(0f, Math.Min(1f, satColor.X));
+                            satColor.Y = Math.Max(0f, Math.Min(1f, satColor.Y));
+                            satColor.Z = Math.Max(0f, Math.Min(1f, satColor.Z));
+                        }
 
                         ImGui.EndChild();
                     }
@@ -415,14 +452,12 @@ public class SettingsPanel
                         ImGui.Text("Background Threshold: ");
                         ImGui.SameLine();
                         ImGui.SetNextItemWidth(-1f);
-
                         double bgThreshMin = 0, bgThreshMax = 255;
-                        ImGui.SliderScalar("##background_threshold", ImGuiDataType.Double, &backgroundThreshold, &bgThreshMin, &bgThreshMax, "%.1f");
+                        ImGui.SliderScalar("##background_threshold", ImGuiDataType.Double, &backgroundThreshold, &bgThreshMin, &bgThreshMax, "%.1f", ImGuiSliderFlags.AlwaysClamp);
 
                         ImGui.Text("Sigma: ");
                         ImGui.SameLine();
                         ImGui.SetNextItemWidth(-1f);
-
                         if (ImGui.InputInt("##sigma", ref sigma))
                             sigma = Math.Max(0, sigma);
 

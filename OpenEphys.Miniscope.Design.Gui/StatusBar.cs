@@ -28,6 +28,7 @@ public class StatusBar
             {
                 var dto = value.Item2;
                 var cameraIndex = dto.CameraIndex;
+                var bufferSize = dto.BufferSize;
                 var isConnected = dto.IsConnected;
                 var statusMessage = dto.StatusMessage;
                 var recordingError = dto.RecordingError;
@@ -38,10 +39,10 @@ public class StatusBar
                 }
 
                 var style = ImGui.GetStyle();
-                var connectButtonWidth = ImGui.CalcTextSize("Disconnect").X + style.FramePadding.X * 2;
-                var indexLabelWidth = ImGui.CalcTextSize("Index: ").X;
                 var indexInputWidth = 60f;
+                var bufferInputWidth = 60f;
 
+                ImGui.AlignTextToFramePadding();
                 ImGui.Text("Index: ");
                 ImGui.SameLine();
 
@@ -53,6 +54,13 @@ public class StatusBar
                 {
                     statusMessage = string.Empty;
                 }
+
+                ImGui.SameLine();
+                ImGui.AlignTextToFramePadding();
+                ImGui.Text("Buffer Size: ");
+                ImGui.SameLine();
+                ImGui.SetNextItemWidth(bufferInputWidth);
+                ImGui.InputInt("##statusbar_buffersize", ref bufferSize, 0, 0);
 
                 if (isConnected)
                     ImGui.EndDisabled();
@@ -89,7 +97,7 @@ public class StatusBar
 
                 ImGui.Separator();
 
-                observer.OnNext(Tuple.Create(value.Item1, new StatusBarDto(cameraIndex, isConnected, statusMessage, recordingError)));
+                observer.OnNext(Tuple.Create(value.Item1, new StatusBarDto(cameraIndex, bufferSize, isConnected, statusMessage, recordingError)));
             },
             observer.OnError,
             observer.OnCompleted);
