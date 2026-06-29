@@ -179,7 +179,7 @@ namespace OpenEphys.Miniscope
                     var rgbImage = new IplImage(image.Size, IplDepth.U8, 3);
                     CV.CvtColor(image, rgbImage, ColorConversion.Yuv2BgrYuy2);
                     MiniscopeDaqDigitalIn digitalIn = (MiniscopeDaqDigitalIn)(frameInfo.State & 0x3);
-                    return new UclaMiniscopeV4Frame(rgbImage, quat, (int)frameInfo.FrameCount, digitalIn, frameInfo.Clock);
+                    return new UclaMiniscopeV4Frame(rgbImage, quat, (int)frameInfo.FrameCount, digitalIn, frameInfo.HardwareTime);
                 }
             }
         }
@@ -363,7 +363,7 @@ namespace OpenEphys.Miniscope
         struct FrameInfo
         {
             public uint FrameCount;
-            public uint Clock;
+            public uint HardwareTime;
             public uint State;
         }
 
@@ -380,7 +380,7 @@ namespace OpenEphys.Miniscope
             ulong* src = (ulong*)buffer;
 
             uint w0 = ExtractWord(src[0]); // FrameCount
-            uint w1 = ExtractWord(src[1]); // Clock
+            uint w1 = ExtractWord(src[1]); // HardwareTime
             uint w2 = ExtractWord(src[2]); // State
             uint w3 = ExtractWord(src[3]); // Quaternion: W, X
             uint w4 = ExtractWord(src[4]); // Quaternion: Y, Z
@@ -388,7 +388,7 @@ namespace OpenEphys.Miniscope
             info = new FrameInfo
             {
                 FrameCount = w0,
-                Clock = w1,
+                HardwareTime = w1,
                 State = w2
             };
 

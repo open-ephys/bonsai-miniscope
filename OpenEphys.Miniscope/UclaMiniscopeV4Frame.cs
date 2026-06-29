@@ -37,14 +37,14 @@ namespace OpenEphys.Miniscope
         /// <param name="quaternion">The head-orientation quaternion from the onboard IMU.</param>
         /// <param name="frameNumber">The hardware frame counter value at the time of capture.</param>
         /// <param name="digitalIn">The digital inputs that are high at the time of capture.</param>
-        /// <param name="clock">The hardware time of the frame, as set by the DAQ.</param>
-        public UclaMiniscopeV4Frame(IplImage image, Quaternion quaternion, int frameNumber, MiniscopeDaqDigitalIn digitalIn, uint clock)
+        /// <param name="hardwareTime">The value of the DAQ's free-running timer at the time of capture.</param>
+        public UclaMiniscopeV4Frame(IplImage image, Quaternion quaternion, int frameNumber, MiniscopeDaqDigitalIn digitalIn, uint hardwareTime)
         {
             FrameNumber = frameNumber;
             Image = image;
             Quaternion = quaternion;
             DigitalIn = digitalIn;
-            Clock = clock;
+            HardwareTime = hardwareTime;
         }
 
         /// <summary>
@@ -68,12 +68,12 @@ namespace OpenEphys.Miniscope
         public MiniscopeDaqDigitalIn DigitalIn { get; }
 
         /// <summary>
-        /// Gets the hardware timestamp of the frame, in milliseconds.
+        /// Gets the hardware time of the frame, in milliseconds.
         /// </summary>
         /// <remarks>
-        /// Hardware time is set by the DAQ, and captures the relative time of the frame
-        /// since acquisition started.
+        /// The DAQ's timer runs independently of acquisition start. This value
+        /// can be used to measure the interval between frames, not as an absolute timestamp.
         /// </remarks>
-        public uint Clock { get; }
+        public uint HardwareTime { get; }
     }
 }
