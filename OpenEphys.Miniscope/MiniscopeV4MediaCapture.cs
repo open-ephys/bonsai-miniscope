@@ -141,7 +141,7 @@ namespace OpenEphys.Miniscope
         void OnMediaCaptureFailed(MediaCapture sender, MediaCaptureFailedEventArgs errorEventArgs)
         {
             if (cancellationToken.IsCancellationRequested) return;
-            frameChannel.TryComplete(new IOException("Error acquiring frames"));
+            frameChannel.TryComplete(new IOException($"Error acquiring frames: {errorEventArgs.Message}"));
         }
 
 
